@@ -53,26 +53,42 @@ jobs:
           $releaseJson = gh release view $rawTag --json assets | ConvertFrom-Json
           $assets = $releaseJson.assets
 
-          # 2. Discover primary installer .exe
-          $setupAsset = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*64*' -or $_.name -like '*x64*') } | Select-Object -First 1
+          # 2. Discover installers. Architecture-tagged assets are preferred so
+          #    each platform's clients get their matching installer; the plain
+          #    (legacy) Setup_AvroKeyboard.exe stays valid for old clients.
+          $setup32 = $assets | Where-Object { $_.name -like '*setup*.exe' -and $_.name -like '*x86*' } | Select-Object -First 1
+          $setup64 = $assets | Where-Object { $_.name -like '*setup*.exe' -and $_.name -like '*x64*' } | Select-Object -First 1
+          $legacy  = $assets | Where-Object { $_.name -like '*setup*.exe' -and $_.name -notlike '*x86*' -and $_.name -notlike '*x64*' } | Select-Object -First 1
 
-          if (-not $setupAsset) {
-              $setupAsset = $assets | Where-Object { $_.name -like '*setup*.exe' -or $_.name -like '*installer*.exe' } | Select-Object -First 1
+          if (-not $setup32 -and -not $setup64 -and -not $legacy) {
+              $legacy = $assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
           }
 
-          if (-not $setupAsset) {
-              $setupAsset = $assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
+          $mkUrl = {
+              param($asset)
+              if ($asset) { "https://github.com/${{ github.repository }}/releases/download/$rawTag/$($asset.name)" } else { $null }
           }
 
-          # 3. Determine Download URL
-          if ($setupAsset) {
-              $downloadFileName = $setupAsset.name
-              $downloadUrl = "https://github.com/${{ github.repository }}/releases/download/$rawTag/$downloadFileName"
-              Write-Host "Discovered primary installer: $downloadFileName"
-          } else {
+          # 3. Determine Download URLs
+          # downloadurl: legacy clients (already shipped builds) only read this
+          # node, so it always resolves to a real installer when one exists.
+          $downloadUrl = & $mkUrl $legacy
+          if (-not $downloadUrl) { $downloadUrl = & $mkUrl $setup32 }
+          if (-not $downloadUrl) { $downloadUrl = & $mkUrl $setup64 }
+          if (-not $downloadUrl) {
               $downloadUrl = "https://github.com/${{ github.repository }}/releases/tag/$rawTag"
               Write-Host "No setup .exe found. Setting download URL to release page."
+          } else {
+              Write-Host "Legacy download URL: $downloadUrl"
           }
+
+          # Per-arch nodes: emitted only when an arch-tagged asset exists.
+          # TUpdateCheck picks downloadurl32/downloadurl64 by the running
+          # executable's architecture and falls back to downloadurl.
+          $downloadUrl32 = & $mkUrl $setup32
+          $downloadUrl64 = & $mkUrl $setup64
+          if ($downloadUrl32) { Write-Host "Arch x86 URL: $downloadUrl32" }
+          if ($downloadUrl64) { Write-Host "Arch x64 URL: $downloadUrl64" }
 
           # 4. Parse semantic version numbers
           $cleanVer = $rawTag.TrimStart('v').TrimStart('V')
@@ -93,7 +109,11 @@ jobs:
               "  <versionminor>$minor</versionminor>",
               "  <versionrevision>$rev</versionrevision>",
               "  <versionbuild>$build</versionbuild>",
-              "  <downloadurl>$downloadUrl</downloadurl>",
+              "  <downloadurl>$downloadUrl</downloadurl>"
+          )
+          if ($downloadUrl32) { $xmlLines += "  <downloadurl32>$downloadUrl32</downloadurl32>" }
+          if ($downloadUrl64) { $xmlLines += "  <downloadurl64>$downloadUrl64</downloadurl64>" }
+          $xmlLines += @(
               "  <changelogurl>https://github.com/${{ github.repository }}/releases/tag/$rawTag</changelogurl>",
               "  <productpageurl>https://github.com/${{ github.repository }}</productpageurl>",
               "  <releasedate>$date</releasedate>",
