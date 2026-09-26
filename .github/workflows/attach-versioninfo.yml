@@ -8,7 +8,7 @@ on:
       tag_name:
         description: 'Release tag (e.g. v1.0.0-beta or v6.0.1)'
         required: true
-        default: 'v6.0.0'
+        default: 'v6.0.1'
 
 permissions:
   contents: write
@@ -17,6 +17,9 @@ jobs:
   attach-versioninfo:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Determine Tag
         id: get_tag
         shell: bash
@@ -30,6 +33,7 @@ jobs:
       - name: Inspect Assets and Generate versioninfo.xml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         shell: pwsh
         run: |
           $rawTag = "${{ steps.get_tag.outputs.tag }}"
@@ -98,5 +102,6 @@ jobs:
       - name: Upload versioninfo.xml to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release upload "${{ steps.get_tag.outputs.tag }}" versioninfo.xml --clobber
