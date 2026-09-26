@@ -1,0 +1,51 @@
+name: Sync version manifests
+
+# Stateless: every run regenerates both manifests from the releases that
+# currently exist. Never reads github.event.release.* - publishing, editing,
+# prerelease-ing, unpublishing or DELETING a release all converge on truth.
+on:
+  release:
+    types: [published, edited, deleted, unpublished, prereleased, released]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Regenerate manifests from live releases
+        id: gen
+        shell: pwsh
+        env:
+          GH_REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./tools/gen_manifest.ps1
+
+      # Commit first so a failing asset upload below can never leave the
+      # branch manifests stale again.
+      - name: Commit and push manifests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add versioninfo.xml versioninfo_beta.xml
+          if [ -n "$(git status --porcelain versioninfo*.xml)" ]; then
+            git commit -m "chore: sync version manifests from live releases [skip ci]"
+            git push origin main
+          else
+            echo "No manifest changes to commit."
+          fi
+
+      # Older clients read releases/latest/download/versioninfo.xml, which is
+      # served from the newest non-prerelease release's assets. Keep it fresh.
+      - name: Attach manifest to the stable release (legacy clients)
+        if: steps.gen.outputs.stable != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ steps.gen.outputs.stable }}" versioninfo.xml --clobber
