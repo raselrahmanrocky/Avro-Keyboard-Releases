@@ -21,12 +21,14 @@ $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
 
 # =========================================================================
 # ZERO-STATE HANDLER: কোনো রিলিজ না থাকলে ডিফল্ট বেসলাইন (6.0.0.0) রাখবে
-# যাতে ইউজার 404 এরর না পেয়ে "You are using latest version" দেখতে পায়
+# যাতে ইউজার 404 এরর না পেয়ে "You are using latest version" দেখতে পায়।
+# releasedate খালি রাখা হয় - নির্দিষ্ট তারিখ দিলে প্রতিটি dispatch তারিখ
+# বদলে অর্থহীন churn commit তৈরি করে; ক্লায়েন্ট node-টি আবশ্যক, তাই
+# সরিয়ে নয়, খালি রাখা।
 # =========================================================================
 if ($activeReleases.Count -eq 0) {
     Write-Host "No active releases found. Writing baseline manifests (6.0.0.0)..."
     
-    $defaultDate = (Get-Date).ToString("yyyy-MM-dd")
     $defaultXml = @"
 <?xml version="1.0" encoding="utf-8"?>
 <versioninfo>
@@ -37,7 +39,7 @@ if ($activeReleases.Count -eq 0) {
   <downloadurl>https://github.com/$Repo</downloadurl>
   <changelogurl>https://github.com/$Repo</changelogurl>
   <productpageurl>https://github.com/$Repo</productpageurl>
-  <releasedate>$defaultDate</releasedate>
+  <releasedate></releasedate>
   <namedversion>Avro Keyboard 6.0.0</namedversion>
 </versioninfo>
 "@
@@ -86,6 +88,10 @@ function Generate-ManifestXml {
     $setup64 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win64*' -or $_.name -like '*x64*') } | Select-Object -First 1
     $legacy  = $assets | Where-Object { $_.name -like '*setup*.exe' -or $_.name -like '*.exe' } | Select-Object -First 1
 
+    # Portable ZIP asset discovery (per-arch, optional)
+    $portable32 = $assets | Where-Object { $_.name -like '*portable*.zip' -and ($_.name -like '*win32*' -or $_.name -like '*x86*') } | Select-Object -First 1
+    $portable64 = $assets | Where-Object { $_.name -like '*portable*.zip' -and ($_.name -like '*win64*' -or $_.name -like '*x64*') } | Select-Object -First 1
+
     $downloadUrl = if ($setup64) {
         "https://github.com/$Repo/releases/download/$tag/$($setup64.name)"
     } elseif ($legacy) {
@@ -96,6 +102,9 @@ function Generate-ManifestXml {
 
     $downloadUrl32 = if ($setup32) { "https://github.com/$Repo/releases/download/$tag/$($setup32.name)" } else { $null }
     $downloadUrl64 = if ($setup64) { "https://github.com/$Repo/releases/download/$tag/$($setup64.name)" } else { $null }
+
+    $downloadUrlPortable32 = if ($portable32) { "https://github.com/$Repo/releases/download/$tag/$($portable32.name)" } else { $null }
+    $downloadUrlPortable64 = if ($portable64) { "https://github.com/$Repo/releases/download/$tag/$($portable64.name)" } else { $null }
 
     # Parse version numbers
     $cleanVer = $tag.TrimStart('v').TrimStart('V')
@@ -110,7 +119,7 @@ function Generate-ManifestXml {
     $date = if ($relData.publishedAt) {
         ([DateTime]$relData.publishedAt).ToString("yyyy-MM-dd")
     } else {
-        (Get-Date).ToString("yyyy-MM-dd")
+        ""
     }
 
     $xmlLines = @(
@@ -125,6 +134,8 @@ function Generate-ManifestXml {
 
     if ($downloadUrl32) { $xmlLines += "  <downloadurl32>$downloadUrl32</downloadurl32>" }
     if ($downloadUrl64) { $xmlLines += "  <downloadurl64>$downloadUrl64</downloadurl64>" }
+    if ($downloadUrlPortable32) { $xmlLines += "  <downloadurlportable32>$downloadUrlPortable32</downloadurlportable32>" }
+    if ($downloadUrlPortable64) { $xmlLines += "  <downloadurlportable64>$downloadUrlPortable64</downloadurlportable64>" }
 
     $xmlLines += @(
         "  <changelogurl>https://github.com/$Repo/releases/tag/$tag</changelogurl>",
