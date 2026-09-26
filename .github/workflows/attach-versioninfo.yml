@@ -1,0 +1,101 @@
+name: Auto-Attach versioninfo.xml
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0.0-beta or v6.0.1)'
+        required: true
+        default: 'v6.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  attach-versioninfo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Tag
+        id: get_tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Inspect Assets and Generate versioninfo.xml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $rawTag = "${{ steps.get_tag.outputs.tag }}"
+
+          # 1. Fetch uploaded assets for the release (Dynamic Asset Discovery)
+          Write-Host "Fetching uploaded assets for release: $rawTag"
+          $releaseJson = gh release view $rawTag --json assets | ConvertFrom-Json
+          $assets = $releaseJson.assets
+
+          # 2. Dynamically discover the installer executable
+          # Priority 1: 64-bit setup or installer
+          $setupAsset = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*64*' -or $_.name -like '*x64*') } | Select-Object -First 1
+
+          # Priority 2: Any setup or installer executable
+          if (-not $setupAsset) {
+              $setupAsset = $assets | Where-Object { $_.name -like '*setup*.exe' -or $_.name -like '*installer*.exe' } | Select-Object -First 1
+          }
+
+          # Priority 3: Any executable file in the release
+          if (-not $setupAsset) {
+              $setupAsset = $assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
+          }
+
+          # 3. Determine the download URL
+          if ($setupAsset) {
+              $downloadFileName = $setupAsset.name
+              $downloadUrl = "https://github.com/${{ github.repository }}/releases/download/$rawTag/$downloadFileName"
+              Write-Host "Discovered primary installer: $downloadFileName"
+          } else {
+              # Fallback: If no .exe is found (e.g. portable zip only), link to the release page
+              $downloadUrl = "https://github.com/${{ github.repository }}/releases/tag/$rawTag"
+              Write-Host "No setup .exe found. Setting download URL to release page."
+          }
+
+          # 4. Parse semantic version numbers (e.g. v1.0.0-beta -> 1, 0, 0, 0)
+          $cleanVer = $rawTag.TrimStart('v').TrimStart('V')
+          $numOnly = ($cleanVer -split '-')[0]
+          $parts = $numOnly.Split('.')
+
+          $major = if ($parts.Length -gt 0 -and $parts[0] -ne '') { $parts[0] } else { "1" }
+          $minor = if ($parts.Length -gt 1 -and $parts[1] -ne '') { $parts[1] } else { "0" }
+          $rev   = if ($parts.Length -gt 2 -and $parts[2] -ne '') { $parts[2] } else { "0" }
+          $build = if ($parts.Length -gt 3 -and $parts[3] -ne '') { $parts[3] } else { "0" }
+          $date  = (Get-Date).ToString("yyyy-MM-dd")
+
+          # 5. Generate versioninfo.xml content
+          $xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<versioninfo>
+  <versionmajor>$major</versionmajor>
+  <versionminor>$minor</versionminor>
+  <versionrevision>$rev</versionrevision>
+  <versionbuild>$build</versionbuild>
+  <downloadurl>$downloadUrl</downloadurl>
+  <changelogurl>https://github.com/${{ github.repository }}/releases/tag/$rawTag</changelogurl>
+  <productpageurl>https://github.com/${{ github.repository }}</productpageurl>
+  <releasedate>$date</releasedate>
+  <namedversion>Avro Keyboard $cleanVer</namedversion>
+</versioninfo>
+"@
+
+          [System.IO.File]::WriteAllText("versioninfo.xml", $xml.Trim(), [System.Text.Encoding]::UTF8)
+          Write-Host "Generated versioninfo.xml successfully with downloadurl: $downloadUrl"
+
+      - name: Upload versioninfo.xml to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.get_tag.outputs.tag }}" versioninfo.xml --clobber
