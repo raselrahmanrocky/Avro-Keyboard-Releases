@@ -1,4 +1,4 @@
-name: Auto-Attach versioninfo.xml
+name: Auto-Attach and Update versioninfo.xml
 
 on:
   release:
@@ -6,80 +6,86 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v1.0.0-beta or v6.0.1)'
+        description: 'Release tag (e.g. v6.0.0 or v6.0.0-beta)'
         required: true
         default: 'v6.0.0'
+      is_prerelease:
+        description: 'Is this a pre-release?'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
-  attach-versioninfo:
+  update-versioninfo:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Determine Tag
-        id: get_tag
+      - name: Determine Tag and Release Type
+        id: release_info
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+            echo "is_prerelease=${{ github.event.inputs.is_prerelease }}" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Inspect Assets and Generate versioninfo.xml
+      - name: Inspect Assets and Generate XMLs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         shell: pwsh
         run: |
-          $rawTag = "${{ steps.get_tag.outputs.tag }}"
+          $rawTag = "${{ steps.release_info.outputs.tag }}"
+          $isPrerelease = "${{ steps.release_info.outputs.is_prerelease }}".ToLower() -eq 'true'
 
-          # 1. Fetch uploaded assets for the release (Dynamic Asset Discovery)
-          Write-Host "Fetching uploaded assets for release: $rawTag"
+          Write-Host "Processing release tag: $rawTag (IsPreRelease: $isPrerelease)"
+
+          # 1. Fetch uploaded assets for the release
           $releaseJson = gh release view $rawTag --json assets | ConvertFrom-Json
           $assets = $releaseJson.assets
 
-          # 2. Dynamically discover the installer executable
-          # Priority 1: 64-bit setup or installer
+          # 2. Discover primary installer .exe
           $setupAsset = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*64*' -or $_.name -like '*x64*') } | Select-Object -First 1
 
-          # Priority 2: Any setup or installer executable
           if (-not $setupAsset) {
               $setupAsset = $assets | Where-Object { $_.name -like '*setup*.exe' -or $_.name -like '*installer*.exe' } | Select-Object -First 1
           }
 
-          # Priority 3: Any executable file in the release
           if (-not $setupAsset) {
               $setupAsset = $assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
           }
 
-          # 3. Determine the download URL
+          # 3. Determine Download URL
           if ($setupAsset) {
               $downloadFileName = $setupAsset.name
               $downloadUrl = "https://github.com/${{ github.repository }}/releases/download/$rawTag/$downloadFileName"
               Write-Host "Discovered primary installer: $downloadFileName"
           } else {
-              # Fallback: If no .exe is found (e.g. portable zip only), link to the release page
               $downloadUrl = "https://github.com/${{ github.repository }}/releases/tag/$rawTag"
               Write-Host "No setup .exe found. Setting download URL to release page."
           }
 
-          # 4. Parse semantic version numbers (e.g. v1.0.0-beta -> 1, 0, 0, 0)
+          # 4. Parse semantic version numbers
           $cleanVer = $rawTag.TrimStart('v').TrimStart('V')
           $numOnly = ($cleanVer -split '-')[0]
           $parts = $numOnly.Split('.')
 
-          $major = if ($parts.Length -gt 0 -and $parts[0] -ne '') { $parts[0] } else { "1" }
+          $major = if ($parts.Length -gt 0 -and $parts[0] -ne '') { $parts[0] } else { "6" }
           $minor = if ($parts.Length -gt 1 -and $parts[1] -ne '') { $parts[1] } else { "0" }
           $rev   = if ($parts.Length -gt 2 -and $parts[2] -ne '') { $parts[2] } else { "0" }
           $build = if ($parts.Length -gt 3 -and $parts[3] -ne '') { $parts[3] } else { "0" }
           $date  = (Get-Date).ToString("yyyy-MM-dd")
 
-          # 5. Generate versioninfo.xml content safely
+          # 5. Build XML content
           $xmlLines = @(
               '<?xml version="1.0" encoding="utf-8"?>',
               '<versioninfo>',
@@ -96,12 +102,37 @@ jobs:
           )
           $xmlContent = $xmlLines -join "`r`n"
 
-          [System.IO.File]::WriteAllText("versioninfo.xml", $xmlContent, [System.Text.Encoding]::UTF8)
-          Write-Host "Generated versioninfo.xml successfully with downloadurl: $downloadUrl"
+          # 6. Write appropriate XML manifests based on release channel
+          if ($isPrerelease) {
+              # Pre-release updates only the beta channel
+              [System.IO.File]::WriteAllText("versioninfo_beta.xml", $xmlContent, [System.Text.Encoding]::UTF8)
+              Write-Host "Updated versioninfo_beta.xml"
+          } else {
+              # Stable release updates both channels
+              [System.IO.File]::WriteAllText("versioninfo.xml", $xmlContent, [System.Text.Encoding]::UTF8)
+              [System.IO.File]::WriteAllText("versioninfo_beta.xml", $xmlContent, [System.Text.Encoding]::UTF8)
+              Write-Host "Updated both versioninfo.xml and versioninfo_beta.xml"
+          }
 
-      - name: Upload versioninfo.xml to Release
+          # Save a copy for release asset attachment
+          [System.IO.File]::WriteAllText("release_versioninfo.xml", $xmlContent, [System.Text.Encoding]::UTF8)
+
+      - name: Upload XML to Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "${{ steps.get_tag.outputs.tag }}" versioninfo.xml --clobber
+          cp release_versioninfo.xml versioninfo.xml
+          gh release upload "${{ steps.release_info.outputs.tag }}" versioninfo.xml --clobber
+
+      - name: Commit and Push Manifests to main Branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add versioninfo.xml versioninfo_beta.xml 2>/dev/null || true
+          if [ -n "$(git status --porcelain versioninfo*.xml)" ]; then
+            git commit -m "Auto-update version manifests for ${{ steps.release_info.outputs.tag }} [skip ci]"
+            git push origin main
+          else
+            echo "No manifest changes to commit."
+          fi
