@@ -17,20 +17,34 @@ Write-Host "Fetching live non-draft releases for $Repo..."
 $releasesJson = gh release list --repo $Repo --limit 30 --json tagName,isPrerelease,isDraft | ConvertFrom-Json
 $activeReleases = @($releasesJson | Where-Object { -not $_.isDraft })
 
+$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+
 # =========================================================================
-# ZERO-STATE HANDLER: যদি কোনো রিলিজ না থাকে (সব ডিলিট হয়ে গেছে)
+# ZERO-STATE HANDLER: কোনো রিলিজ না থাকলে ডিফল্ট বেসলাইন (6.0.0.0) রাখবে
+# যাতে ইউজার 404 এরর না পেয়ে "You are using latest version" দেখতে পায়
 # =========================================================================
 if ($activeReleases.Count -eq 0) {
-    Write-Host "No active releases found in repository. Removing stale manifest files..."
+    Write-Host "No active releases found. Writing baseline manifests (6.0.0.0)..."
     
-    if (Test-Path "versioninfo.xml") {
-        Remove-Item -Path "versioninfo.xml" -Force
-        Write-Host "Deleted stale versioninfo.xml"
-    }
-    if (Test-Path "versioninfo_beta.xml") {
-        Remove-Item -Path "versioninfo_beta.xml" -Force
-        Write-Host "Deleted stale versioninfo_beta.xml"
-    }
+    $defaultDate = (Get-Date).ToString("yyyy-MM-dd")
+    $defaultXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<versioninfo>
+  <versionmajor>6</versionmajor>
+  <versionminor>0</versionminor>
+  <versionrevision>0</versionrevision>
+  <versionbuild>0</versionbuild>
+  <downloadurl>https://github.com/$Repo</downloadurl>
+  <changelogurl>https://github.com/$Repo</changelogurl>
+  <productpageurl>https://github.com/$Repo</productpageurl>
+  <releasedate>$defaultDate</releasedate>
+  <namedversion>Avro Keyboard 6.0.0</namedversion>
+</versioninfo>
+"@
+
+    [System.IO.File]::WriteAllText("versioninfo.xml", $defaultXml.Trim(), $utf8WithBom)
+    [System.IO.File]::WriteAllText("versioninfo_beta.xml", $defaultXml.Trim(), $utf8WithBom)
+    Write-Host "Successfully written baseline 6.0.0.0 manifests."
 
     if ($env:GITHUB_OUTPUT) {
         "stable=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -56,7 +70,7 @@ if (-not $stableRel) {
 }
 
 # =========================================================================
-# XML GENERATOR FUNCTION
+# XML GENERATOR FUNCTION (লাইভ রিলিজ থেকে তৈরি)
 # =========================================================================
 function Generate-ManifestXml {
     param($release)
@@ -126,8 +140,6 @@ function Generate-ManifestXml {
 # 4. Generate XML files
 $stableXml = Generate-ManifestXml $stableRel
 $betaXml   = Generate-ManifestXml $betaRel
-
-$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
 
 if ($stableXml) {
     [System.IO.File]::WriteAllText("versioninfo.xml", $stableXml, $utf8WithBom)
