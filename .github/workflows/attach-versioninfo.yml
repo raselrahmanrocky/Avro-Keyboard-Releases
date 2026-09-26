@@ -1,24 +1,15 @@
-name: Auto-Attach and Update versioninfo.xml
+name: Sync Version Manifests
 
 on:
   release:
-    types: [published, edited]
+    types: [published, prereleased, released, edited, deleted, unpublished]
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Release tag (e.g. v6.0.0 or v6.0.0-beta)'
-        required: true
-        default: 'v6.0.0'
-      is_prerelease:
-        description: 'Is this a pre-release?'
-        type: boolean
-        default: false
 
 permissions:
   contents: write
 
 jobs:
-  update-versioninfo:
+  sync-manifests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -26,142 +17,128 @@ jobs:
         with:
           ref: main
 
-      - name: Determine Tag and Release Type
-        id: release_info
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-            echo "is_prerelease=${{ github.event.inputs.is_prerelease }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-            echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Inspect Assets and Generate XMLs
+      - name: Regenerate manifests from live releases
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         shell: pwsh
         run: |
-          $rawTag = "${{ steps.release_info.outputs.tag }}"
-          $isPrerelease = "${{ steps.release_info.outputs.is_prerelease }}".ToLower() -eq 'true'
+          Write-Host "Fetching live non-draft releases from $env:GH_REPO..."
+          
+          # 1. Fetch live non-draft releases safely
+          $releasesJson = gh release list --repo $env:GH_REPO --limit 30 --json tagName,isPrerelease,isDraft | ConvertFrom-Json
+          $activeReleases = @($releasesJson | Where-Object { -not $_.isDraft })
 
-          Write-Host "Processing release tag: $rawTag (IsPreRelease: $isPrerelease)"
-
-          # 1. Fetch uploaded assets for the release
-          $releaseJson = gh release view $rawTag --json assets | ConvertFrom-Json
-          $assets = $releaseJson.assets
-
-          # 2. Discover installers. Architecture-tagged assets are preferred so
-          #    each platform's clients get their matching installer. Both naming
-          #    schemes are recognized:
-          #      current: AvroKeyboard-6.0.0-beta-win32-setup.exe / -win64-setup.exe
-          #      legacy:  Setup_AvroKeyboard_x86.exe / Setup_AvroKeyboard_x64.exe
-          #    A plain Setup_AvroKeyboard.exe is the "legacy" downloadurl asset;
-          #    it must contain NO arch marker, otherwise the first of the two
-          #    new-style installers would be mistaken for it.
-          $setup32 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win32*' -or $_.name -like '*x86*') } | Select-Object -First 1
-          $setup64 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win64*' -or $_.name -like '*x64*') } | Select-Object -First 1
-          $legacy  = $assets | Where-Object {
-              $_.name -like '*setup*.exe' -and
-              $_.name -notlike '*win32*' -and $_.name -notlike '*win64*' -and
-              $_.name -notlike '*x86*'   -and $_.name -notlike '*x64*'
-          } | Select-Object -First 1
-
-          if (-not $setup32 -and -not $setup64 -and -not $legacy) {
-              $legacy = $assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
+          if (-not $activeReleases -or $activeReleases.Count -eq 0) {
+              Write-Host "No active releases found in the repository."
+              exit 0
           }
 
-          $mkUrl = {
-              param($asset)
-              if ($asset) { "https://github.com/${{ github.repository }}/releases/download/$rawTag/$($asset.name)" } else { $null }
+          # 2. Identify latest Stable and Beta releases
+          $stableRel = $activeReleases | Where-Object { -not $_.isPrerelease } | Select-Object -First 1
+          $betaRel   = $activeReleases | Where-Object { $_.isPrerelease } | Select-Object -First 1
+
+          # Fallback rule: If no beta release exists, beta channel falls back to stable
+          if (-not $betaRel) {
+              Write-Host "No beta release found. Beta channel will fall back to stable release."
+              $betaRel = $stableRel
           }
 
-          # 3. Determine Download URLs
-          # downloadurl: legacy clients (already shipped builds) only read this
-          # node, so it always resolves to a real installer when one exists.
-          $downloadUrl = & $mkUrl $legacy
-          if (-not $downloadUrl) { $downloadUrl = & $mkUrl $setup32 }
-          if (-not $downloadUrl) { $downloadUrl = & $mkUrl $setup64 }
-          if (-not $downloadUrl) {
-              $downloadUrl = "https://github.com/${{ github.repository }}/releases/tag/$rawTag"
-              Write-Host "No setup .exe found. Setting download URL to release page."
-          } else {
-              Write-Host "Legacy download URL: $downloadUrl"
+          # 3. Function to generate XML from a specific release
+          function Generate-ManifestXml {
+              param($release)
+              if (-not $release) { return $null }
+
+              $tag = $release.tagName
+              Write-Host "Processing manifest for tag: $tag"
+              $relData = gh release view $tag --repo $env:GH_REPO --json assets,publishedAt | ConvertFrom-Json
+              $assets = $relData.assets
+
+              # Architecture detection
+              $setup32 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win32*' -or $_.name -like '*x86*') } | Select-Object -First 1
+              $setup64 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win64*' -or $_.name -like '*x64*') } | Select-Object -First 1
+              $legacy  = $assets | Where-Object { $_.name -like '*setup*.exe' -or $_.name -like '*.exe' } | Select-Object -First 1
+
+              $downloadUrl = if ($setup64) {
+                  "https://github.com/$env:GH_REPO/releases/download/$tag/$($setup64.name)"
+              } elseif ($legacy) {
+                  "https://github.com/$env:GH_REPO/releases/download/$tag/$($legacy.name)"
+              } else {
+                  "https://github.com/$env:GH_REPO/releases/tag/$tag"
+              }
+
+              $downloadUrl32 = if ($setup32) { "https://github.com/$env:GH_REPO/releases/download/$tag/$($setup32.name)" } else { $null }
+              $downloadUrl64 = if ($setup64) { "https://github.com/$env:GH_REPO/releases/download/$tag/$($setup64.name)" } else { $null }
+
+              # Version number parsing (e.g. v6.0.1-beta -> 6, 0, 1, 0)
+              $cleanVer = $tag.TrimStart('v').TrimStart('V')
+              $numOnly = ($cleanVer -split '-')[0]
+              $parts = $numOnly.Split('.')
+
+              $major = if ($parts.Length -gt 0 -and $parts[0] -ne '') { $parts[0] } else { "6" }
+              $minor = if ($parts.Length -gt 1 -and $parts[1] -ne '') { $parts[1] } else { "0" }
+              $rev   = if ($parts.Length -gt 2 -and $parts[2] -ne '') { $parts[2] } else { "0" }
+              $build = if ($parts.Length -gt 3 -and $parts[3] -ne '') { $parts[3] } else { "0" }
+
+              $date = if ($relData.publishedAt) {
+                  ([DateTime]$relData.publishedAt).ToString("yyyy-MM-dd")
+              } else {
+                  (Get-Date).ToString("yyyy-MM-dd")
+              }
+
+              $xmlLines = @(
+                  '<?xml version="1.0" encoding="utf-8"?>',
+                  '<versioninfo>',
+                  "  <versionmajor>$major</versionmajor>",
+                  "  <versionminor>$minor</versionminor>",
+                  "  <versionrevision>$rev</versionrevision>",
+                  "  <versionbuild>$build</versionbuild>",
+                  "  <downloadurl>$downloadUrl</downloadurl>"
+              )
+
+              if ($downloadUrl32) { $xmlLines += "  <downloadurl32>$downloadUrl32</downloadurl32>" }
+              if ($downloadUrl64) { $xmlLines += "  <downloadurl64>$downloadUrl64</downloadurl64>" }
+
+              $xmlLines += @(
+                  "  <changelogurl>https://github.com/$env:GH_REPO/releases/tag/$tag</changelogurl>",
+                  "  <productpageurl>https://github.com/$env:GH_REPO</productpageurl>",
+                  "  <releasedate>$date</releasedate>",
+                  "  <namedversion>Avro Keyboard $cleanVer</namedversion>",
+                  '</versioninfo>'
+              )
+
+              return ($xmlLines -join "`r`n")
           }
 
-          # Per-arch nodes: emitted only when an arch-tagged asset exists.
-          # TUpdateCheck picks downloadurl32/downloadurl64 by the running
-          # executable's architecture and falls back to downloadurl.
-          $downloadUrl32 = & $mkUrl $setup32
-          $downloadUrl64 = & $mkUrl $setup64
-          if ($downloadUrl32) { Write-Host "Arch win32 URL: $downloadUrl32" }
-          if ($downloadUrl64) { Write-Host "Arch win64 URL: $downloadUrl64" }
+          # 4. Generate XML manifests
+          $stableXml = Generate-ManifestXml $stableRel
+          $betaXml   = Generate-ManifestXml $betaRel
 
-          # 4. Parse semantic version numbers
-          $cleanVer = $rawTag.TrimStart('v').TrimStart('V')
-          $numOnly = ($cleanVer -split '-')[0]
-          $parts = $numOnly.Split('.')
-
-          $major = if ($parts.Length -gt 0 -and $parts[0] -ne '') { $parts[0] } else { "6" }
-          $minor = if ($parts.Length -gt 1 -and $parts[1] -ne '') { $parts[1] } else { "0" }
-          $rev   = if ($parts.Length -gt 2 -and $parts[2] -ne '') { $parts[2] } else { "0" }
-          $build = if ($parts.Length -gt 3 -and $parts[3] -ne '') { $parts[3] } else { "0" }
-          $date  = (Get-Date).ToString("yyyy-MM-dd")
-
-          # 5. Build XML content
-          $xmlLines = @(
-              '<?xml version="1.0" encoding="utf-8"?>',
-              '<versioninfo>',
-              "  <versionmajor>$major</versionmajor>",
-              "  <versionminor>$minor</versionminor>",
-              "  <versionrevision>$rev</versionrevision>",
-              "  <versionbuild>$build</versionbuild>",
-              "  <downloadurl>$downloadUrl</downloadurl>"
-          )
-          if ($downloadUrl32) { $xmlLines += "  <downloadurl32>$downloadUrl32</downloadurl32>" }
-          if ($downloadUrl64) { $xmlLines += "  <downloadurl64>$downloadUrl64</downloadurl64>" }
-          $xmlLines += @(
-              "  <changelogurl>https://github.com/${{ github.repository }}/releases/tag/$rawTag</changelogurl>",
-              "  <productpageurl>https://github.com/${{ github.repository }}</productpageurl>",
-              "  <releasedate>$date</releasedate>",
-              "  <namedversion>Avro Keyboard $cleanVer</namedversion>",
-              '</versioninfo>'
-          )
-          $xmlContent = $xmlLines -join "`r`n"
-
-          # 6. Write appropriate XML manifests based on release channel
-          if ($isPrerelease) {
-              # Pre-release updates only the beta channel
-              [System.IO.File]::WriteAllText("versioninfo_beta.xml", $xmlContent, [System.Text.Encoding]::UTF8)
-              Write-Host "Updated versioninfo_beta.xml"
-          } else {
-              # Stable release updates both channels
-              [System.IO.File]::WriteAllText("versioninfo.xml", $xmlContent, [System.Text.Encoding]::UTF8)
-              [System.IO.File]::WriteAllText("versioninfo_beta.xml", $xmlContent, [System.Text.Encoding]::UTF8)
-              Write-Host "Updated both versioninfo.xml and versioninfo_beta.xml"
+          if ($stableXml) {
+              [System.IO.File]::WriteAllText("versioninfo.xml", $stableXml, [System.Text.Encoding]::UTF8)
+              Write-Host "Generated versioninfo.xml from $($stableRel.tagName)"
           }
 
-          # Save a copy for release asset attachment
-          [System.IO.File]::WriteAllText("release_versioninfo.xml", $xmlContent, [System.Text.Encoding]::UTF8)
+          if ($betaXml) {
+              [System.IO.File]::WriteAllText("versioninfo_beta.xml", $betaXml, [System.Text.Encoding]::UTF8)
+              Write-Host "Generated versioninfo_beta.xml from $($betaRel.tagName)"
+          }
 
-      - name: Upload XML to Release Asset
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
+      - name: Commit and push changes
+        shell: bash
         run: |
-          cp release_versioninfo.xml versioninfo.xml
-          gh release upload "${{ steps.release_info.outputs.tag }}" versioninfo.xml --clobber
-
-      - name: Commit and Push Manifests to main Branch
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add versioninfo.xml versioninfo_beta.xml 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Safely stage only files that exist
+          [ -f "versioninfo.xml" ] && git add versioninfo.xml
+          [ -f "versioninfo_beta.xml" ] && git add versioninfo_beta.xml
+          
           if [ -n "$(git status --porcelain versioninfo*.xml)" ]; then
-            git commit -m "Auto-update version manifests for ${{ steps.release_info.outputs.tag }} [skip ci]"
+            git commit -m "chore: sync version manifests [skip ci]"
             git push origin main
+            echo "Manifests successfully synced and pushed to main."
           else
-            echo "No manifest changes to commit."
+            echo "Manifests are already up to date with live releases. Nothing to commit."
           fi
