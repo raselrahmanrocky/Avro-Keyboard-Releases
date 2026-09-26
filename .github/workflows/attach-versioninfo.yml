@@ -54,11 +54,20 @@ jobs:
           $assets = $releaseJson.assets
 
           # 2. Discover installers. Architecture-tagged assets are preferred so
-          #    each platform's clients get their matching installer; the plain
-          #    (legacy) Setup_AvroKeyboard.exe stays valid for old clients.
-          $setup32 = $assets | Where-Object { $_.name -like '*setup*.exe' -and $_.name -like '*x86*' } | Select-Object -First 1
-          $setup64 = $assets | Where-Object { $_.name -like '*setup*.exe' -and $_.name -like '*x64*' } | Select-Object -First 1
-          $legacy  = $assets | Where-Object { $_.name -like '*setup*.exe' -and $_.name -notlike '*x86*' -and $_.name -notlike '*x64*' } | Select-Object -First 1
+          #    each platform's clients get their matching installer. Both naming
+          #    schemes are recognized:
+          #      current: AvroKeyboard-6.0.0-beta-win32-setup.exe / -win64-setup.exe
+          #      legacy:  Setup_AvroKeyboard_x86.exe / Setup_AvroKeyboard_x64.exe
+          #    A plain Setup_AvroKeyboard.exe is the "legacy" downloadurl asset;
+          #    it must contain NO arch marker, otherwise the first of the two
+          #    new-style installers would be mistaken for it.
+          $setup32 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win32*' -or $_.name -like '*x86*') } | Select-Object -First 1
+          $setup64 = $assets | Where-Object { $_.name -like '*setup*.exe' -and ($_.name -like '*win64*' -or $_.name -like '*x64*') } | Select-Object -First 1
+          $legacy  = $assets | Where-Object {
+              $_.name -like '*setup*.exe' -and
+              $_.name -notlike '*win32*' -and $_.name -notlike '*win64*' -and
+              $_.name -notlike '*x86*'   -and $_.name -notlike '*x64*'
+          } | Select-Object -First 1
 
           if (-not $setup32 -and -not $setup64 -and -not $legacy) {
               $legacy = $assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
@@ -87,8 +96,8 @@ jobs:
           # executable's architecture and falls back to downloadurl.
           $downloadUrl32 = & $mkUrl $setup32
           $downloadUrl64 = & $mkUrl $setup64
-          if ($downloadUrl32) { Write-Host "Arch x86 URL: $downloadUrl32" }
-          if ($downloadUrl64) { Write-Host "Arch x64 URL: $downloadUrl64" }
+          if ($downloadUrl32) { Write-Host "Arch win32 URL: $downloadUrl32" }
+          if ($downloadUrl64) { Write-Host "Arch win64 URL: $downloadUrl64" }
 
           # 4. Parse semantic version numbers
           $cleanVer = $rawTag.TrimStart('v').TrimStart('V')
