@@ -2,7 +2,7 @@
 
 # 🇧🇩 Avro Keyboard — Release Hub
 
-**The official home of Avro Keyboard installers, portable editions, and updates.**
+**The unofficial home of Avro Keyboard installers, portable editions, and updates.**
 
 *The most popular Unicode-compliant Bangla (Bengali) input method for Windows —
 rebuilt for modern hardware, faster conversion, and zero-friction installation.*
@@ -156,7 +156,7 @@ up automatically the moment they land — no restart, no manual copy-paste — a
 for your user account without an elevation prompt. If no ANSI mapping is installed at all, the
 tray nudges you with an actionable notification instead of failing silently.
 
-**Automatic updates** check the official release channel and offer new versions in place. The
+**Automatic updates** check the unofficial release channel and offer new versions in place. The
 download link is **verified live before the prompt appears**, so you'll never be sent to a dead
 or wrong URL; architecture-appropriate downloads are selected for you; and a **beta channel
 toggle** lets early adopters receive pre-release builds while everyone else stays on stable.
