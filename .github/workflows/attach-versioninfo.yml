@@ -75,23 +75,24 @@ jobs:
           $build = if ($parts.Length -gt 3 -and $parts[3] -ne '') { $parts[3] } else { "0" }
           $date  = (Get-Date).ToString("yyyy-MM-dd")
 
-          # 5. Generate versioninfo.xml content
-          $xml = @"
-<?xml version="1.0" encoding="utf-8"?>
-<versioninfo>
-  <versionmajor>$major</versionmajor>
-  <versionminor>$minor</versionminor>
-  <versionrevision>$rev</versionrevision>
-  <versionbuild>$build</versionbuild>
-  <downloadurl>$downloadUrl</downloadurl>
-  <changelogurl>https://github.com/${{ github.repository }}/releases/tag/$rawTag</changelogurl>
-  <productpageurl>https://github.com/${{ github.repository }}</productpageurl>
-  <releasedate>$date</releasedate>
-  <namedversion>Avro Keyboard $cleanVer</namedversion>
-</versioninfo>
-"@
+          # 5. Generate versioninfo.xml content safely
+          $xmlLines = @(
+              '<?xml version="1.0" encoding="utf-8"?>',
+              '<versioninfo>',
+              "  <versionmajor>$major</versionmajor>",
+              "  <versionminor>$minor</versionminor>",
+              "  <versionrevision>$rev</versionrevision>",
+              "  <versionbuild>$build</versionbuild>",
+              "  <downloadurl>$downloadUrl</downloadurl>",
+              "  <changelogurl>https://github.com/${{ github.repository }}/releases/tag/$rawTag</changelogurl>",
+              "  <productpageurl>https://github.com/${{ github.repository }}</productpageurl>",
+              "  <releasedate>$date</releasedate>",
+              "  <namedversion>Avro Keyboard $cleanVer</namedversion>",
+              '</versioninfo>'
+          )
+          $xmlContent = $xmlLines -join "`r`n"
 
-          [System.IO.File]::WriteAllText("versioninfo.xml", $xml.Trim(), [System.Text.Encoding]::UTF8)
+          [System.IO.File]::WriteAllText("versioninfo.xml", $xmlContent, [System.Text.Encoding]::UTF8)
           Write-Host "Generated versioninfo.xml successfully with downloadurl: $downloadUrl"
 
       - name: Upload versioninfo.xml to Release
