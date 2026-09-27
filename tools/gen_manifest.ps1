@@ -36,6 +36,7 @@ if ($activeReleases.Count -eq 0) {
   <versionminor>0</versionminor>
   <versionrevision>0</versionrevision>
   <versionbuild>0</versionbuild>
+  <channel>stable</channel>
   <downloadurl>https://github.com/$Repo</downloadurl>
   <changelogurl>https://github.com/$Repo</changelogurl>
   <productpageurl>https://github.com/$Repo</productpageurl>
@@ -80,6 +81,13 @@ function Generate-ManifestXml {
 
     $tag = $release.tagName
     Write-Host "Generating manifest for tag: $tag"
+
+    # The release itself decides the channel - never the file the manifest is
+    # written to. When no beta is published the beta feed falls back to the
+    # stable release, and this node must still report "stable" so the client
+    # does not label a stable download as a beta one.
+    $isBetaRelease = ($release.isPrerelease -eq $true) -or ($tag -like '*-beta*')
+    $channel = if ($isBetaRelease) { 'beta' } else { 'stable' }
     $relData = gh release view $tag --repo $Repo --json assets,publishedAt | ConvertFrom-Json
     $assets = @($relData.assets)
 
@@ -129,6 +137,7 @@ function Generate-ManifestXml {
         "  <versionminor>$minor</versionminor>",
         "  <versionrevision>$rev</versionrevision>",
         "  <versionbuild>$build</versionbuild>",
+        "  <channel>$channel</channel>",
         "  <downloadurl>$downloadUrl</downloadurl>"
     )
 
