@@ -1,0 +1,27 @@
+[
+  {
+    "year": "সেপ্টেম্বর ২০২৬",
+    "title": "Async persistence ও error recovery",
+    "desc": "ফোনেটিক ইঞ্জিনের সবচেয়ে গুরুত্বপূর্ণ রিফ্যাক্টর — I/O latency থেকে মুক্তি।"
+  },
+  {
+    "year": "সেপ্টেম্বর ২০২৬",
+    "title": "Qt converter bundled in installer",
+    "desc": "Qt Avro Text Converter এখন setup এবং portable build উভয়ের সাথে আসে।"
+  },
+  {
+    "year": "সেপ্টেম্বর ২০২৬",
+    "title": "Legacy Delphi converter deprecated",
+    "desc": "পুরানো converter শুধুমাত্র reference হিসেবে রাখা হয়েছে।"
+  },
+  {
+    "year": "মে ২০২৫",
+    "title": "Delphi 12 Community Edition সাপোর্ট",
+    "desc": "3rd-party dependency ছাড়াই লেটেস্ট ফ্রি Delphi-তে বিল্ড।"
+  },
+  {
+    "year": "মে ২০২৫",
+    "title": "Dark theme + build system",
+    "desc": "Build script, formatter profile এবং সম্পূর্ণ dark theme যুক্ত।"
+  }
+]

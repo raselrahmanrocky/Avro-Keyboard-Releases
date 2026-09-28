@@ -1,0 +1,74 @@
+[
+  {
+    "feature": "ফোনেটিক ইঞ্জিন",
+    "old": "সিঙ্ক্রোনাস ডিস্ক I/O — ল্যাগ হতো",
+    "new": "Async + timer-based dirty flag",
+    "isNew": true
+  },
+  {
+    "feature": "ফাইল সেফটি",
+    "old": "Direct overwrite — crash এ corruption",
+    "new": "Atomic write-to-tmp + rename",
+    "isNew": true
+  },
+  {
+    "feature": "এরর হ্যান্ডলিং",
+    "old": "কীবোর্ড হুক ব্লক",
+    "new": "Silent error + tray balloon",
+    "isNew": true
+  },
+  {
+    "feature": "রিসোর্স রিকভারি",
+    "old": "রিস্টার্ট লাগত",
+    "new": "Auto reload, restart ছাড়া",
+    "isNew": true
+  },
+  {
+    "feature": "টেক্সট কনভার্টার",
+    "old": "শুধু Delphi",
+    "new": "Qt 6 C++ port + Delphi",
+    "isNew": true
+  },
+  {
+    "feature": "ডার্ক থিম",
+    "old": "ছিল না",
+    "new": "Full dark theme support",
+    "isNew": true
+  },
+  {
+    "feature": "DPI Awareness",
+    "old": "PerMonitorV2 — UI stretch সমস্যা",
+    "new": "System DPI — About dialog fix",
+    "isNew": false
+  },
+  {
+    "feature": "Build system",
+    "old": "3rd-party dependency",
+    "new": "Delphi 12 Community Edition",
+    "isNew": false
+  },
+  {
+    "feature": "Installer",
+    "old": "শুধু কিবোর্ড",
+    "new": "Bundled Qt converter + portable",
+    "isNew": true
+  },
+  {
+    "feature": "লাইসেন্স",
+    "old": "Mixed",
+    "new": "Clean MPL-2.0 + Qt LGPL",
+    "isNew": false
+  },
+  {
+    "feature": "কোড কোয়ালিটি",
+    "old": "Inconsistent formatting",
+    "new": "Formatter profile + style guide",
+    "isNew": false
+  },
+  {
+    "feature": "Code ownership",
+    "old": "ছিল না",
+    "new": "CODEOWNERS file",
+    "isNew": true
+  }
+]

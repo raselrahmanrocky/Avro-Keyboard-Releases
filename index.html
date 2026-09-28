@@ -1,0 +1,1174 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>অভ্র কিবোর্ড · Encoding Branch | আরও দ্রুত, আরও শক্তিশালী</title>
+<meta name="description" content="Avro Keyboard Encoding branch — async persistence, silent error recovery, Qt converter সহ সম্পূর্ণ পুনর্গঠিত বাংলা IME।">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#11211c;--forest:#123c32;--forest-deep:#08251f;--green:#1f6c57;
+  --mint:#b8d8ca;--paper:#f4f0e5;--paper-deep:#e8dfce;--white:#fffdf7;
+  --red:#c63f32;--red-deep:#9e2d25;--gold:#dba33d;
+  --line:rgba(17,33,28,.16);--shadow:0 24px 70px rgba(8,37,31,.14);
+  --radius:30px;--shell:min(1180px,calc(100% - 40px));
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:92px}
+body{margin:0;color:var(--ink);background:var(--paper);
+  font-family:"Manrope",system-ui,sans-serif;font-size:16px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::selection{color:var(--white);background:var(--red)}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+button,input{font:inherit}
+code{font-family:"SFMono-Regular",Consolas,monospace;font-size:.9em;
+  background:var(--paper-deep);padding:2px 6px;border-radius:4px}
+.shell{width:var(--shell);margin-inline:auto}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+.site-header{position:fixed;z-index:100;top:0;left:0;width:100%;color:var(--white);
+  border-bottom:1px solid rgba(255,255,255,.1);transition:background .25s ease,box-shadow .25s ease}
+.site-header.is-scrolled{background:rgba(8,37,31,.94);box-shadow:0 8px 30px rgba(0,0,0,.15);backdrop-filter:blur(18px)}
+.nav-wrap{min-height:82px;display:flex;align-items:center;justify-content:space-between;gap:30px}
+.brand{display:inline-flex;align-items:center;gap:12px;color:white}
+.brand-mark{width:45px;height:45px;display:grid;place-items:center;flex:0 0 auto;color:var(--white);
+  background:var(--red);border-radius:50%;font-family:"Hind Siliguri",sans-serif;font-size:29px;font-weight:700;line-height:1}
+.brand-copy{display:grid;line-height:1.1}
+.brand-copy strong{font-size:14px;letter-spacing:.03em}
+.brand-copy span{margin-top:4px;color:rgba(255,255,255,.65);font-size:10px;letter-spacing:.13em;text-transform:uppercase}
+.site-nav{display:flex;align-items:center;gap:28px;font-size:13px;font-weight:700}
+.site-nav>a:not(.nav-download){position:relative;color:rgba(255,255,255,.76)}
+.site-nav>a:not(.nav-download)::after{content:"";position:absolute;left:0;bottom:-8px;width:100%;
+  height:2px;background:var(--gold);transform:scaleX(0);transform-origin:right;transition:transform .25s ease}
+.site-nav>a:hover{color:white}
+.site-nav>a:hover::after{transform:scaleX(1);transform-origin:left}
+.nav-download{padding:11px 17px;color:var(--forest-deep);background:var(--white);
+  border-radius:999px;transition:transform .2s ease,background .2s ease}
+.nav-download:hover{background:var(--gold);transform:translateY(-2px)}
+.menu-button{display:none;width:44px;height:44px;padding:10px;
+  border:1px solid rgba(255,255,255,.25);color:white;background:transparent;border-radius:50%;cursor:pointer}
+.menu-button span:not(.sr-only){display:block;width:100%;height:2px;margin:4px 0;
+  background:currentColor;transition:transform .2s ease,opacity .2s ease}
+.scroll-progress{position:absolute;left:0;bottom:-1px;width:0;height:2px;background:var(--gold)}
+
+.hero{position:relative;min-height:830px;display:grid;align-items:center;
+  padding:150px 0 100px;color:var(--white);background:var(--forest-deep);overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;opacity:.08;
+  background-image:linear-gradient(rgba(255,255,255,.35) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.35) 1px,transparent 1px);background-size:74px 74px;
+  mask-image:linear-gradient(to bottom,#000,transparent 85%)}
+.hero-grid{position:relative;z-index:2;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:74px}
+.hero-orbit{position:absolute;border:1px solid rgba(255,255,255,.11);border-radius:50%;pointer-events:none}
+.hero-orbit-one{width:610px;height:610px;top:80px;right:-180px}
+.hero-orbit-two{width:340px;height:340px;right:-45px;bottom:-165px;border-color:rgba(219,163,61,.25)}
+.eyebrow,.section-label{margin:0 0 24px;color:var(--mint);font-size:11px;font-weight:800;
+  letter-spacing:.17em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.eyebrow span{width:28px;height:1px;background:var(--gold)}
+.hero h1{margin:0;font-family:"Hind Siliguri",sans-serif;font-size:clamp(54px,6.5vw,96px);
+  font-weight:600;line-height:.93;letter-spacing:-.045em}
+.hero h1 em{color:var(--gold);font-style:normal}
+.hero h1 small{display:block;margin-top:24px;color:rgba(255,255,255,.47);
+  font-family:"Manrope",sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:.17em;line-height:1.4;text-transform:uppercase}
+.hero-lead{max-width:610px;margin:30px 0 0;color:rgba(255,255,255,.72);font-size:18px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:36px}
+.button{min-height:54px;display:inline-flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:0 22px;border:1px solid transparent;border-radius:999px;font-size:13px;font-weight:800;transition:transform .2s ease}
+.button:hover{transform:translateY(-3px)}
+.button-primary{color:var(--white);background:var(--red)}
+.button-primary:hover{background:var(--red-deep)}
+.button-quiet{border-color:rgba(255,255,255,.22);color:white}
+.button-quiet:hover{color:var(--forest-deep);background:var(--white)}
+.hero-proof{display:flex;gap:32px;margin-top:50px;padding-top:26px;border-top:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
+.hero-proof div{display:grid;gap:3px}
+.hero-proof strong{color:white;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+.hero-proof span{color:rgba(255,255,255,.48);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+
+.hero-visual{position:relative;min-height:570px}
+.terminal-frame{position:absolute;inset:14px 24px 24px 40px;overflow:hidden;
+  background:#0a1f1a;border:1px solid rgba(255,255,255,.16);border-radius:28px;
+  box-shadow:0 36px 90px rgba(0,0,0,.32);font-family:"SFMono-Regular",Consolas,monospace}
+.terminal-top{padding:14px 20px;background:rgba(0,0,0,.3);display:flex;gap:8px;align-items:center;border-bottom:1px solid rgba(255,255,255,.08)}
+.terminal-dot{width:12px;height:12px;border-radius:50%}
+.terminal-dot.r{background:#ff5f57}
+.terminal-dot.y{background:#febc2e}
+.terminal-dot.g{background:#28c840}
+.terminal-title{margin-left:14px;color:rgba(255,255,255,.5);font-size:11px;letter-spacing:.05em}
+.terminal-body{padding:24px;font-size:13px;line-height:1.9}
+.terminal-line{color:rgba(255,255,255,.78)}
+.terminal-line .prompt{color:var(--gold)}
+.terminal-line .cmd{color:var(--mint)}
+.terminal-line .ok{color:#85e2a7}
+.terminal-line .num{color:#ffd267}
+.terminal-line .dim{color:rgba(255,255,255,.35);font-size:11px}
+.floating-card{position:absolute;z-index:4;display:flex;align-items:center;gap:12px;padding:13px 16px;
+  color:var(--ink);background:rgba(255,253,247,.94);border:1px solid rgba(255,255,255,.7);
+  border-radius:16px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+.floating-card>span:last-child{display:grid;line-height:1.25}
+.floating-card strong{font-size:12px}
+.floating-card small{color:rgba(17,33,28,.55);font-size:9px;letter-spacing:.05em;text-transform:uppercase}
+.floating-card-top{top:110px;right:-8px}
+.floating-card-bottom{bottom:78px;left:-8px}
+.floating-icon{width:34px;height:34px;display:grid;place-items:center;color:white;
+  background:var(--green);border-radius:50%;font-weight:800}
+
+.marquee{position:relative;z-index:4;padding:18px 0;color:var(--white);
+  background:var(--red);overflow:hidden;transform:rotate(-1deg) scale(1.01);transform-origin:center}
+.marquee-track{width:max-content;display:flex;align-items:center;gap:30px;margin-inline:auto;
+  font-family:"Hind Siliguri",sans-serif;font-size:17px;font-weight:600}
+.marquee-track i{color:var(--gold);font-style:normal;font-size:11px}
+
+.stats-section{position:relative;z-index:3;padding:105px 0;background:var(--paper)}
+.stats-board{display:grid;grid-template-columns:1.1fr .9fr;color:white;
+  background:var(--forest-deep);border-radius:34px;box-shadow:0 36px 90px rgba(8,37,31,.19);overflow:hidden}
+.counter-panel{position:relative;padding:56px 62px 54px;overflow:hidden}
+.counter-panel::before{content:"";position:absolute;width:380px;height:380px;right:-190px;top:-190px;
+  border:1px solid rgba(255,255,255,.1);border-radius:50%;
+  box-shadow:0 0 0 55px rgba(255,255,255,.025),0 0 0 110px rgba(255,255,255,.018)}
+.stats-kicker{margin:0;color:var(--mint);font-size:10px;font-weight:800;letter-spacing:.17em;text-transform:uppercase}
+.counter-number{position:relative;display:flex;align-items:flex-start;margin-top:35px;font-variant-numeric:tabular-nums}
+.counter-number strong{font-size:clamp(82px,10vw,128px);font-weight:600;line-height:.78;letter-spacing:-.075em}
+.counter-number span{margin:-9px 0 0 13px;color:var(--gold);font-size:38px;font-weight:400}
+.counter-panel h2{margin:17px 0 0;font-family:"Hind Siliguri",sans-serif;font-size:34px;font-weight:500;line-height:1}
+.counter-panel>p:not(.stats-kicker){max-width:520px;margin:18px 0 0;color:rgba(255,255,255,.52);font-size:13px}
+.counter-panel>a{display:inline-flex;align-items:center;gap:18px;margin-top:30px;padding:13px 18px;
+  color:var(--forest-deep);background:var(--gold);border-radius:999px;font-size:12px;font-weight:800;transition:transform .2s ease,background .2s ease}
+.counter-panel>a:hover{background:var(--white);transform:translateY(-3px)}
+.release-panel{display:flex;flex-direction:column;padding:45px;color:var(--ink);background:var(--white)}
+.release-summary{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.release-summary>div{display:grid;gap:8px;padding:20px}
+.release-summary>div+div{border-left:1px solid var(--line)}
+.release-summary span,.latest-release span{color:rgba(17,33,28,.48);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.release-summary strong{color:var(--forest);font-size:31px;line-height:1;font-variant-numeric:tabular-nums}
+.latest-release{display:flex;align-items:end;justify-content:space-between;gap:25px;
+  margin-top:34px;padding-bottom:25px;border-bottom:1px solid var(--line)}
+.latest-release>div{display:grid;gap:5px}
+.latest-release strong{color:var(--red);font-size:40px;line-height:1;letter-spacing:-.05em}
+.latest-release time{padding-bottom:5px;color:rgba(17,33,28,.48);font-size:10px}
+.release-list{margin-top:20px;display:flex;flex-direction:column;gap:8px}
+.release-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 14px;
+  background:var(--paper);border-radius:10px;font-size:12px;align-items:center}
+.release-row strong{font-size:13px;color:var(--forest)}
+.release-row time{color:rgba(17,33,28,.5);font-size:11px}
+
+/* Comparison */
+.compare{padding:105px 0;background:var(--white)}
+.section-heading{display:grid;grid-template-columns:1fr;align-items:end;gap:30px;margin-bottom:62px;max-width:780px}
+.section-heading h2{margin:0;font-family:"Hind Siliguri","Manrope",sans-serif;
+  font-size:clamp(42px,5vw,66px);font-weight:600;line-height:1.02;letter-spacing:-.035em}
+.section-heading h2 em{color:var(--gold);font-style:normal}
+.section-heading>p{max-width:700px;margin:0;color:rgba(17,33,28,.62);font-size:17px}
+
+.compare-wrap{border:1px solid var(--line);border-radius:24px;overflow:hidden;background:var(--paper);box-shadow:var(--shadow)}
+.compare-head{display:grid;grid-template-columns:1.4fr 1.4fr 1.6fr;background:var(--forest-deep);color:white;padding:20px 28px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:800}
+.compare-head>div:nth-child(2){color:rgba(255,255,255,.55)}
+.compare-head>div:nth-child(3){color:var(--gold)}
+.compare-row{display:grid;grid-template-columns:1.4fr 1.4fr 1.6fr;padding:20px 28px;border-top:1px solid var(--line);gap:18px;align-items:center;font-size:14px;transition:background .2s ease}
+.compare-row:hover{background:rgba(31,108,87,.05)}
+.compare-row>div:first-child{font-weight:700;color:var(--forest)}
+.compare-row>div:nth-child(2){color:rgba(17,33,28,.55);position:relative;padding-left:18px}
+.compare-row>div:nth-child(2)::before{content:"";position:absolute;left:0;top:10px;width:10px;height:2px;background:var(--red);opacity:.5}
+.compare-row>div:nth-child(3){color:var(--green);font-weight:600;padding-left:24px;position:relative}
+.compare-row>div:nth-child(3)::before{content:"✓";position:absolute;left:0;top:0;color:var(--green);font-weight:800;font-size:16px}
+.new-tag{display:inline-block;background:var(--gold);color:var(--forest-deep);
+  padding:1px 7px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.1em;margin-left:6px;vertical-align:middle}
+
+/* Features */
+.features{padding:105px 0;background:var(--paper)}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.feature-card{position:relative;min-height:420px;display:flex;flex-direction:column;
+  padding:30px;overflow:hidden;border-radius:var(--radius);transition:transform .3s ease}
+.feature-card:hover{transform:translateY(-6px)}
+.feature-index{font-size:10px;font-weight:800;letter-spacing:.14em}
+.feature-card h3{margin:auto 0 10px;font-size:23px;line-height:1.2}
+.feature-card p{margin:0;opacity:.7;font-size:13px;line-height:1.6}
+.feature-card-dark{color:white;background:var(--forest-deep)}
+.feature-card-red{color:white;background:var(--red)}
+.feature-card-paper{border:1px solid var(--line);background:var(--white)}
+.feature-glyph{margin-top:56px;font-size:90px;font-weight:700;line-height:1;opacity:.9;transform:rotate(-5deg);font-family:"Hind Siliguri",sans-serif}
+
+/* Why */
+.why{padding:105px 0;background:var(--white)}
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:40px}
+.why-item{padding:34px;background:var(--paper);border:1px solid var(--line);border-radius:20px;position:relative;overflow:hidden}
+.why-item::before{content:"";position:absolute;width:200px;height:200px;right:-100px;top:-100px;
+  background:var(--gold);border-radius:50%;opacity:.06}
+.why-num{font-family:"Manrope",sans-serif;font-size:52px;font-weight:800;color:var(--red);opacity:.25;line-height:1}
+.why-item h4{font-size:17px;margin:10px 0 8px;color:var(--forest)}
+.why-item p{margin:0;color:rgba(17,33,28,.65);font-size:13.5px;line-height:1.6}
+
+/* Today */
+.today-section{position:relative;padding:105px 0;background:#d7e7df;overflow:hidden;transition:background .6s ease}
+.today-section[data-season="grishmo"]{background:#f1dfb6}
+.today-section[data-season="borsha"]{background:#d4e6df}
+.today-section[data-season="shorot"]{background:#dcebf0}
+.today-section[data-season="hemonto"]{background:#eadbc3}
+.today-section[data-season="sheet"]{background:#dfe7e8}
+.today-section[data-season="boshonto"]{background:#eadfdc}
+.today-layout{position:relative;z-index:2;display:grid;grid-template-columns:.55fr 1.45fr;align-items:center;gap:64px}
+.today-intro h2{margin:0;font-family:"Hind Siliguri",sans-serif;font-size:clamp(42px,4.5vw,62px);font-weight:600;line-height:.98;letter-spacing:-.035em}
+.today-intro>p:not(.section-label){max-width:390px;margin:24px 0 0;color:rgba(17,33,28,.62);font-family:"Hind Siliguri",sans-serif;font-size:16px}
+.season-signature{display:flex;align-items:center;gap:14px;margin-top:34px}
+.season-symbol{width:54px;height:54px;display:grid;place-items:center;color:white;background:var(--green);border-radius:50%;font-size:25px;box-shadow:0 12px 25px rgba(31,108,87,.2)}
+.season-signature>span:last-child{display:grid;line-height:1.15}
+.season-signature small{color:rgba(17,33,28,.5);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.season-signature strong{margin-top:3px;color:var(--forest);font-family:"Hind Siliguri",sans-serif;font-size:25px}
+.today-cards{display:grid;grid-template-columns:.8fr 1.2fr;gap:18px}
+.calendar-card,.weather-card{min-height:450px;border-radius:28px;box-shadow:var(--shadow)}
+.calendar-card{position:relative;display:flex;flex-direction:column;padding:30px;background:rgba(255,253,247,.9);border:1px solid rgba(255,255,255,.75);overflow:hidden;backdrop-filter:blur(16px)}
+.calendar-card::after{content:"অ";position:absolute;right:-22px;bottom:-74px;color:rgba(18,60,50,.045);font-family:"Hind Siliguri",sans-serif;font-size:250px;font-weight:700;line-height:1;pointer-events:none}
+.card-kicker{display:flex;align-items:center;gap:9px;color:rgba(17,33,28,.55);font-size:10px;font-weight:700;letter-spacing:.1em}
+.card-kicker span{width:7px;height:7px;background:var(--red);border-radius:50%}
+.bangla-date-lockup{position:relative;z-index:2;display:flex;align-items:center;gap:18px;margin-top:54px}
+.bangla-date-lockup>strong{font-family:"Hind Siliguri",sans-serif;font-size:88px;font-weight:600;line-height:.75;letter-spacing:-.06em}
+.bangla-date-lockup>span{display:grid}
+.bangla-date-lockup b{color:var(--red);font-family:"Hind Siliguri",sans-serif;font-size:29px;line-height:1;font-style:normal}
+.bangla-date-lockup small{margin-top:8px;color:rgba(17,33,28,.5);font-size:12px}
+.gregorian-date{position:relative;z-index:2;margin:25px 0 0;color:rgba(17,33,28,.6);font-family:"Hind Siliguri",sans-serif;font-size:13px}
+.dhaka-clock{position:relative;z-index:2;display:grid;gap:6px;margin-top:auto;padding-top:22px;border-top:1px solid var(--line)}
+.dhaka-clock>span{color:rgba(17,33,28,.42);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.dhaka-clock time{color:var(--forest);font-family:"Hind Siliguri",sans-serif;font-size:27px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.weather-card{position:relative;padding:24px;color:white;background:linear-gradient(145deg,#245c54,#0a2d27);overflow:hidden;transition:background .5s ease}
+.weather-card[data-weather="clear"]{background:linear-gradient(145deg,#327c8f,#174d67)}
+.weather-card[data-weather="partly"]{background:linear-gradient(145deg,#426f77,#173d48)}
+.weather-card[data-weather="cloudy"]{background:linear-gradient(145deg,#526b70,#263f45)}
+.weather-card[data-weather="rain"]{background:linear-gradient(145deg,#385b66,#142d3b)}
+.weather-topline{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.weather-topline>div{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.7);font-family:"Hind Siliguri",sans-serif;font-size:12px}
+.live-dot{width:7px;height:7px;background:#85e2a7;border-radius:50%;box-shadow:0 0 0 5px rgba(133,226,167,.12)}
+.weather-refresh{width:36px;height:36px;display:grid;place-items:center;padding:0;color:white;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:50%;cursor:pointer;transition:background .2s ease,transform .2s ease}
+.weather-refresh:hover{background:rgba(255,255,255,.2);transform:rotate(30deg)}
+.weather-main{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:12px;min-height:180px}
+.weather-reading{position:relative;z-index:4}
+.temperature{display:flex;align-items:flex-start;font-variant-numeric:tabular-nums}
+.temperature strong{font-size:58px;font-weight:500;line-height:.8;letter-spacing:-.07em}
+.temperature span{margin:-8px 0 0 5px;color:var(--gold);font-size:24px}
+.weather-reading p{margin:12px 0 2px;font-family:"Hind Siliguri",sans-serif;font-size:16px;font-weight:600;line-height:1.2}
+.weather-reading small{color:rgba(255,255,255,.52);font-size:10px}
+.weather-details{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);margin:0;padding:16px 0;border-top:1px solid rgba(255,255,255,.13);border-bottom:1px solid rgba(255,255,255,.13)}
+.weather-details div{display:grid;gap:4px;padding-inline:13px;border-right:1px solid rgba(255,255,255,.12)}
+.weather-details div:first-child{padding-left:0}
+.weather-details div:last-child{padding-right:0;border-right:0}
+.weather-details dt{color:rgba(255,255,255,.42);font-size:9px}
+.weather-details dd{margin:0;font-family:"Hind Siliguri",sans-serif;font-size:12px;font-weight:600}
+.weather-status{position:relative;z-index:2;display:flex;justify-content:space-between;gap:20px;margin-top:13px;color:rgba(255,255,255,.38);font-size:8px}
+.weather-status a{color:rgba(255,255,255,.62);text-decoration:underline;text-underline-offset:3px}
+
+/* Install */
+.guide{background:var(--paper);padding:105px 0}
+.steps{margin:0;padding:0;list-style:none;border-top:1px solid var(--line)}
+.step{min-height:200px;display:grid;grid-template-columns:.85fr 1.15fr;align-items:center;gap:70px;padding:48px 0;border-bottom:1px solid var(--line)}
+.step-copy>span{color:var(--red);font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+.step-copy h3{margin:13px 0 12px;font-size:29px;line-height:1.18;color:var(--forest)}
+.step-copy p{max-width:500px;margin:0;color:rgba(17,33,28,.62);font-size:14px}
+.step-visual{padding:28px;background:var(--white);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);font-family:"SFMono-Regular",Consolas,monospace;font-size:13px;line-height:1.8;color:var(--forest-deep)}
+
+/* Timeline */
+.history{background:var(--white);padding:105px 0}
+.timeline{border-top:1px solid var(--line);max-width:820px}
+.timeline-item{position:relative;display:grid;grid-template-columns:110px 1fr;gap:28px;padding:26px 0;border-bottom:1px solid var(--line)}
+.timeline-item time{color:var(--red);font-size:12px;font-weight:800}
+.timeline-item strong{font-size:15px;color:var(--forest)}
+.timeline-item p{margin:4px 0 0;color:rgba(17,33,28,.55);font-size:12px}
+.timeline-item.current::before{content:"";position:absolute;top:31px;left:-15px;width:7px;height:7px;background:var(--red);border-radius:50%;box-shadow:0 0 0 6px rgba(198,63,50,.12)}
+
+/* Download */
+.download-section{color:white;background:var(--forest);padding:105px 0}
+.download-shell{display:grid;grid-template-columns:.8fr 1.2fr;gap:110px;align-items:start}
+.light-label{color:var(--gold)}
+.download-intro p:last-child{max-width:420px;color:rgba(255,255,255,.58)}
+.download-list{border-top:1px solid rgba(255,255,255,.16)}
+.download-row{display:grid;grid-template-columns:56px 1fr 48px;align-items:center;gap:20px;padding:26px 0;border-bottom:1px solid rgba(255,255,255,.16);transition:padding .2s ease,background .2s ease}
+.download-row:hover{padding-inline:12px;background:rgba(255,255,255,.05)}
+.file-type{width:48px;height:48px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.25);border-radius:50%;color:var(--gold);font-size:10px;font-weight:800}
+.file-copy{display:grid;gap:5px}
+.file-copy strong{font-size:15px}
+.file-copy small{color:rgba(255,255,255,.46);font-size:11px}
+.download-arrow{width:42px;height:42px;display:grid;place-items:center;justify-self:end;color:var(--forest);background:var(--white);border-radius:50%;transition:transform .2s ease,background .2s ease}
+.download-row:hover .download-arrow{background:var(--gold);transform:translateY(-3px)}
+
+/* Closing */
+.closing{padding:120px 0;color:white;background:var(--red)}
+.closing-inner{display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:40px}
+.closing-mark{width:110px;height:110px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.35);border-radius:50%;font-size:70px;font-weight:600;font-family:"Hind Siliguri",sans-serif}
+.closing p{margin:0;font-family:"Hind Siliguri";font-size:clamp(44px,6vw,76px);font-weight:600;line-height:.95;letter-spacing:-.03em}
+.closing a{display:inline-flex;align-items:center;gap:18px;padding:15px 22px;color:var(--red);background:var(--white);border-radius:999px;font-weight:700;transition:transform .2s ease}
+.closing a:hover{transform:translateY(-3px)}
+
+/* Footer */
+.site-footer{padding:72px 0 22px;color:rgba(255,255,255,.65);background:var(--forest-deep)}
+.footer-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px}
+.footer-grid>div:first-child>p{max-width:390px;margin:25px 0 0;font-size:12px}
+.footer-links{display:grid;grid-template-columns:1fr 1fr;gap:50px}
+.footer-links>div{display:grid;align-content:start;gap:10px}
+.footer-links strong{margin-bottom:8px;color:white;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.footer-links a{font-size:12px}
+.footer-links a:hover{color:var(--gold)}
+.footer-bottom{display:flex;justify-content:space-between;gap:30px;margin-top:62px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+
+.js .reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+.js .reveal.is-visible{opacity:1;transform:translateY(0)}
+.js .reveal-delay{transition-delay:.16s}
+
+.loading-dots{display:inline-flex;gap:4px}
+.loading-dots span{width:6px;height:6px;background:currentColor;border-radius:50%;animation:dot-pulse 1.2s infinite}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dot-pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1.1)}}
+
+@media (max-width:1020px){
+  .hero-grid{gap:38px}
+  .feature-grid,.why-grid{grid-template-columns:repeat(2,1fr)}
+  .today-layout{grid-template-columns:.48fr 1.52fr;gap:38px}
+  .today-cards{grid-template-columns:.85fr 1.15fr}
+  .download-shell,.history-grid{gap:60px}
+  .counter-panel{padding-inline:46px}
+}
+@media (max-width:820px){
+  .menu-button{display:block}
+  .menu-button[aria-expanded="true"] span:nth-of-type(2){transform:translateY(6px)rotate(45deg)}
+  .menu-button[aria-expanded="true"] span:nth-of-type(3){opacity:0}
+  .menu-button[aria-expanded="true"] span:nth-of-type(4){transform:translateY(-6px)rotate(-45deg)}
+  .site-nav{position:absolute;top:82px;left:15px;right:15px;display:grid;gap:0;padding:12px;
+    color:white;background:var(--forest-deep);border:1px solid rgba(255,255,255,.15);border-radius:18px;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease}
+  .site-nav.is-open{opacity:1;pointer-events:auto;transform:translateY(0)}
+  .site-nav a{padding:12px}
+  .site-nav>a::after{display:none}
+  .nav-download{margin-top:6px;text-align:center}
+  .hero-grid,.compare-head,.compare-row,.feature-grid,.why-grid,.today-layout,
+  .download-shell,.history-grid,.section-heading,.step{grid-template-columns:1fr}
+  .compare-head>div,.compare-row>div{padding:6px 0}
+  .stats-board{grid-template-columns:1fr}
+  .counter-panel{padding:50px}
+  .feature-card,.why-item{min-height:auto}
+  .today-cards{grid-template-columns:1fr}
+  .closing-inner{grid-template-columns:85px 1fr}
+  .closing-mark{width:80px;height:80px;font-size:48px}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}
+  .js .reveal{opacity:1;transform:none}
+}
+</style>
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+
+<header class="site-header" data-header>
+  <div class="shell nav-wrap">
+    <a class="brand" href="#top">
+      <span class="brand-mark" lang="bn">অ</span>
+      <span class="brand-copy">
+        <strong>Avro Keyboard</strong>
+        <span>Encoding Branch</span>
+      </span>
+    </a>
+    <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav" data-menu-button>
+      <span class="sr-only">Open navigation</span>
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav" id="site-nav" aria-label="Primary navigation" data-nav>
+      <a href="#stats">Stats</a>
+      <a href="#compare">তুলনা</a>
+      <a href="#features">Features</a>
+      <a href="#why">কেন দরকার</a>
+      <a href="#install">Install</a>
+      <a class="nav-download" href="#download">Download</a>
+    </nav>
+  </div>
+  <div class="scroll-progress" data-scroll-progress></div>
+</header>
+
+<main id="main-content">
+
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="hero-orbit hero-orbit-one" aria-hidden="true"></div>
+    <div class="hero-orbit hero-orbit-two" aria-hidden="true"></div>
+    <div class="shell hero-grid">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span></span> Open Source Bangla IME · Actively maintained</p>
+        <h1><span lang="bn">অভ্র কিবোর্ড,<br><em>এখন আরও শক্তিশালী।</em></span>
+          <small>Avro Keyboard · Encoding Branch</small></h1>
+        <p class="hero-lead">Async persistence, silent error recovery, atomic file writes এবং Qt-based text converter দিয়ে সম্পূর্ণভাবে পুনর্গঠিত Unicode-compliant বাংলা IME — যারা দ্রুত ও নির্ভরযোগ্য টাইপিং অভিজ্ঞতা চান তাদের জন্য।</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#download">
+            <span>এখনই ডাউনলোড করুন</span><span aria-hidden="true">↓</span>
+          </a>
+          <a class="button button-quiet" href="https://github.com/raselrahmanrocky/Avro-Keyboard/tree/Encoding" target="_blank" rel="noreferrer">
+            <span>GitHub-এ দেখুন</span><span aria-hidden="true">↗</span>
+          </a>
+        </div>
+        <div class="hero-proof" aria-label="Live repository stats">
+          <div><strong id="stat-commits" data-target="335">—</strong><span>Commits</span></div>
+          <div><strong id="stat-ahead" data-target="213">—</strong><span>Ahead of master</span></div>
+          <div><strong id="stat-stars" data-target="0">—</strong><span>Stars</span></div>
+          <div><strong id="stat-forks" data-target="0">—</strong><span>Forks</span></div>
+        </div>
+      </div>
+      <div class="hero-visual reveal reveal-delay">
+        <div class="terminal-frame">
+          <div class="terminal-top">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+            <span class="terminal-title">git log · Encoding branch</span>
+          </div>
+          <div class="terminal-body">
+            <div class="terminal-line"><span class="prompt">$</span> <span class="cmd">git log --oneline -4</span></div>
+            <div class="terminal-line"><span class="dim">855611f</span> <span class="ok">●</span> refactor(engine): async persistence &amp; error recovery</div>
+            <div class="terminal-line"><span class="dim">a3f8c21</span> <span class="ok">●</span> feat(installer): bundle Qt converter in setup</div>
+            <div class="terminal-line"><span class="dim">9b4e0d7</span> <span class="ok">●</span> fix(converter): atomic file writes</div>
+            <div class="terminal-line"><span class="dim">2c19af4</span> <span class="ok">●</span> feat(ui): full dark theme support</div>
+            <div class="terminal-line" style="margin-top:16px"><span class="prompt">$</span> <span class="cmd">git rev-list --count master..Encoding</span></div>
+            <div class="terminal-line"><span class="num" id="terminal-ahead">213</span></div>
+            <div class="terminal-line" style="margin-top:16px"><span class="prompt">$</span> <span class="ok">✓</span> Build status: <span class="ok">passing</span></div>
+            <div class="terminal-line"><span class="prompt">$</span> <span class="ok">✓</span> License: <span style="color:#ffd267">MPL-2.0</span></div>
+          </div>
+        </div>
+        <div class="floating-card floating-card-top">
+          <span class="floating-icon" aria-hidden="true">✓</span>
+          <span><strong>Unicode compliant</strong><small>Native Bangla IME</small></span>
+        </div>
+        <div class="floating-card floating-card-bottom">
+          <span class="floating-icon" aria-hidden="true">⚡</span>
+          <span><strong>Async engine</strong><small>Zero typing lag</small></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Open Source</span><i>✦</i><span>Async persistence</span><i>✦</i>
+      <span>Silent recovery</span><i>✦</i><span>Qt converter</span><i>✦</i>
+      <span>Dark theme</span><i>✦</i><span>MPL-2.0</span><i>✦</i>
+      <span>Delphi 12</span><i>✦</i><span>Portable build</span>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <section class="stats-section" id="stats">
+    <div class="shell stats-board reveal">
+      <div class="counter-panel">
+        <p class="stats-kicker">Repository · Live from GitHub</p>
+        <div class="counter-number">
+          <strong data-target="335" id="main-commit-count">335</strong><span>+</span>
+        </div>
+        <h2>total commits</h2>
+        <p>Master branch থেকে <strong id="ahead-count-inline">213</strong>টি commit এগিয়ে — প্রতিটি commit একটি বাস্তব সমস্যার সমাধান।</p>
+        <a href="https://github.com/raselrahmanrocky/Avro-Keyboard/commits/Encoding" target="_blank" rel="noreferrer">সব commits দেখুন <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="release-panel">
+        <div class="release-summary">
+          <div><span>Stars</span><strong id="panel-stars">—</strong></div>
+          <div><span>Forks</span><strong id="panel-forks">—</strong></div>
+        </div>
+        <div class="latest-release">
+          <div><span>Latest release</span><strong id="latest-release-tag">—</strong></div>
+          <time id="latest-release-date" datetime=""></time>
+        </div>
+        <div class="release-list" id="release-list">
+          <div class="release-row" style="justify-content:center;color:rgba(17,33,28,.4)">
+            <span class="loading-dots"><span></span><span></span><span></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section class="compare" id="compare">
+    <div class="shell">
+      <div class="section-heading reveal">
+        <p class="section-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>তুলনামূলক বিশ্লেষণ</p>
+        <h2>আগে যা ছিল <em>vs এখন যা আছে।</em></h2>
+        <p>Master branch থেকে Encoding branch পর্যন্ত প্রতিটি গুরুত্বপূর্ণ উন্নতি — সব ডেটা সরাসরি repo-র JSON ফাইল থেকে লোড হচ্ছে।</p>
+      </div>
+      <div class="compare-wrap reveal">
+        <div class="compare-head">
+          <div>ফিচার</div>
+          <div>আগে (Legacy)</div>
+          <div>এখন (Encoding)</div>
+        </div>
+        <div id="compare-rows">
+          <div class="compare-row" style="justify-content:center;padding:40px;color:rgba(17,33,28,.4)">
+            <span class="loading-dots"><span></span><span></span><span></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="shell">
+      <div class="section-heading reveal">
+        <p class="section-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>নতুন ফিচারসমূহ</p>
+        <h2>যেসব <em>গভীর পরিবর্তন</em> এনেছি।</h2>
+        <p>শুধু উপর-উপর নয়, ইঞ্জিন থেকে UI পর্যন্ত প্রতিটি স্তরে যত্নশীল উন্নতি।</p>
+      </div>
+      <div class="feature-grid" id="feature-grid">
+        <div class="feature-card feature-card-paper reveal" style="justify-content:center;min-height:200px">
+          <span class="loading-dots"><span></span><span></span><span></span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY -->
+  <section class="why" id="why">
+    <div class="shell">
+      <div class="section-heading reveal">
+        <p class="section-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>কেন আপনার দরকার</p>
+        <h2>কেন এই <em>ভার্সনটিই</em> আপনার ব্যবহার করা উচিত।</h2>
+        <p>প্রতিটি পরিবর্তনের পেছনে একটি বাস্তব সমস্যা ছিল। আপনি যদি নিয়মিত বাংলা টাইপ করেন, এই উন্নতিগুলো সরাসরি আপনার কাজকে দ্রুত ও নির্ভরযোগ্য করবে।</p>
+      </div>
+      <div class="why-grid" id="why-grid"></div>
+    </div>
+  </section>
+
+  <!-- TODAY -->
+  <section class="today-section" id="today" data-today-section>
+    <div class="shell today-layout">
+      <div class="today-intro reveal">
+        <p class="section-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>আজকের ঢাকা · লাইভ</p>
+        <h2 lang="bn">বাংলার দিন,<br>ঢাকার আকাশ।</h2>
+        <p lang="bn">বাংলা তারিখ, ঋতু, ঢাকার সময় ও এই মুহূর্তের আবহাওয়ার একটি ছোট্ট জানালা।</p>
+        <div class="season-signature" lang="bn">
+          <span class="season-symbol" data-season-symbol aria-hidden="true">☁</span>
+          <span><small>এখন ঋতু</small><strong data-bangla-season>—</strong></span>
+        </div>
+      </div>
+      <div class="today-cards reveal reveal-delay">
+        <article class="calendar-card" lang="bn">
+          <div class="card-kicker"><span></span> বাংলা পঞ্জিকা</div>
+          <div class="bangla-date-lockup">
+            <strong data-bangla-day>—</strong>
+            <span><b data-bangla-month>—</b><small><span data-bangla-year>—</span> বঙ্গাব্দ</small></span>
+          </div>
+          <p class="gregorian-date" data-gregorian-date>—</p>
+          <div class="dhaka-clock">
+            <span>ঢাকা সময়</span>
+            <time data-dhaka-clock datetime="">—</time>
+          </div>
+        </article>
+        <article class="weather-card" data-weather-card aria-live="polite" lang="bn">
+          <div class="weather-topline">
+            <div><span class="live-dot"></span><span>ঢাকার আবহাওয়া</span></div>
+            <button class="weather-refresh" type="button" data-weather-refresh aria-label="Refresh"><span aria-hidden="true">↻</span></button>
+          </div>
+          <div class="weather-main">
+            <div class="weather-reading">
+              <div class="temperature"><strong data-weather-temp>--</strong><span>°</span></div>
+              <p data-weather-condition>লোড হচ্ছে…</p>
+              <small>অনুভূত <span data-weather-feels>--°</span></small>
+            </div>
+          </div>
+          <dl class="weather-details">
+            <div><dt>আর্দ্রতা</dt><dd data-weather-humidity>--%</dd></div>
+            <div><dt>বাতাস</dt><dd data-weather-wind>-- কিমি/ঘণ্টা</dd></div>
+            <div><dt>বৃষ্টি</dt><dd data-weather-rain>-- মিমি</dd></div>
+          </dl>
+          <div class="weather-status">
+            <span data-weather-updated>—</span>
+            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section class="guide" id="install">
+    <div class="shell">
+      <div class="section-heading reveal">
+        <p class="section-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>Installation</p>
+        <h2>তিন ধাপে <em>শুরু করুন।</em></h2>
+        <p>একদম সহজ — ডাউনলোড করুন, ইনস্টল করুন, টাইপ করুন।</p>
+      </div>
+      <ol class="steps">
+        <li class="step reveal">
+          <div class="step-copy">
+            <span>Step 01</span>
+            <h3>Release ডাউনলোড করুন</h3>
+            <p>নিচের ডাউনলোড বাটন থেকে <code>avro-setup.exe</code> বা <code>portable.zip</code> নিন।</p>
+          </div>
+          <div class="step-visual">$ curl -O avro-setup.exe<br>&gt; downloading latest release<br>&gt; <span style="color:var(--green)">✓</span> saved</div>
+        </li>
+        <li class="step reveal">
+          <div class="step-copy">
+            <span>Step 02</span>
+            <h3>ইনস্টল বা এক্সট্রাক্ট করুন</h3>
+            <p>Setup চালিয়ে ডিফল্ট সেটিংসে ইনস্টল করুন, অথবা portable zip extract করে যেকোনো ফোল্ডারে রাখুন।</p>
+          </div>
+          <div class="step-visual">C:\Program Files\Avro Keyboard\<br>├── avro.exe<br>├── AvroTextConverter.exe<br>├── Qt6Core.dll<br>└── resources\</div>
+        </li>
+        <li class="step reveal">
+          <div class="step-copy">
+            <span>Step 03</span>
+            <h3>কীবোর্ড সুইচ করুন</h3>
+            <p>Taskbar-এর Avro icon-এ ক্লিক করে <strong>Avro Phonetic</strong> সিলেক্ট করুন। <code>Ctrl+Space</code> দিয়ে দ্রুত toggle করুন।</p>
+          </div>
+          <div class="step-visual">Shortcut: <span style="color:var(--red)">Ctrl</span> + <span style="color:var(--red)">Space</span><br>&gt; keyboard layout switched<br>&gt; <span style="color:var(--green)">✓</span> ready to type বাংলা</div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="history" id="history">
+    <div class="shell">
+      <div class="section-heading reveal">
+        <p class="section-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>Project History</p>
+        <h2>একটি যত্নশীল <em>যাত্রার ইতিহাস।</em></h2>
+        <p>২০২৫ সাল থেকে আজ পর্যন্ত ক্রমাগত উন্নয়ন — ডেটা <code>data/timeline.json</code> থেকে লোড হচ্ছে।</p>
+      </div>
+      <div class="timeline" id="timeline-list">
+        <div class="timeline-item reveal" style="justify-content:center;color:rgba(17,33,28,.4)">
+          <span class="loading-dots"><span></span><span></span><span></span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section class="download-section" id="download">
+    <div class="shell download-shell">
+      <div class="download-intro reveal">
+        <p class="section-label light-label"><span style="width:28px;height:1px;background:var(--gold);display:inline-block;margin-right:10px;vertical-align:middle"></span>Get the files</p>
+        <h2>প্রস্তুত তো?<br><em>নতুন অভিজ্ঞতা</em> শুরু করুন।</h2>
+        <p>সম্পূর্ণ বিনামূল্যে, ওপেন সোর্স। MPL-2.0 লাইসেন্সের আওতায়।</p>
+      </div>
+      <div class="download-list reveal reveal-delay" id="download-list">
+        <a class="download-row" href="https://github.com/raselrahmanrocky/Avro-Keyboard/releases" target="_blank" rel="noreferrer">
+          <span class="file-type">EXE</span>
+          <span class="file-copy"><strong>Standard Installer</strong><small>avro-setup.exe · Windows 10/11</small></span>
+          <span class="download-arrow" aria-hidden="true">↓</span>
+        </a>
+        <a class="download-row" href="https://github.com/raselrahmanrocky/Avro-Keyboard/releases" target="_blank" rel="noreferrer">
+          <span class="file-type">ZIP</span>
+          <span class="file-copy"><strong>Portable Edition</strong><small>কোনো ইনস্টলেশন ছাড়াই ব্যবহারযোগ্য</small></span>
+          <span class="download-arrow" aria-hidden="true">↓</span>
+        </a>
+        <a class="download-row" href="https://github.com/raselrahmanrocky/Avro-Keyboard/tree/Encoding" target="_blank" rel="noreferrer">
+          <span class="file-type">SRC</span>
+          <span class="file-copy"><strong>Source Code</strong><small>Encoding branch · Delphi 12 + Qt 6</small></span>
+          <span class="download-arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING -->
+  <section class="closing" lang="bn">
+    <div class="shell closing-inner reveal">
+      <span class="closing-mark">অ</span>
+      <p>ভুল কমুক।<br>বাংলা ছড়িয়ে পড়ুক।</p>
+      <a href="#download">ডাউনলোড করুন <span aria-hidden="true">↓</span></a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="shell footer-grid">
+    <div>
+      <a class="brand footer-brand" href="#top">
+        <span class="brand-mark">অ</span>
+        <span class="brand-copy"><strong>Avro Keyboard</strong><span>Encoding Branch</span></span>
+      </a>
+      <p>Unicode-compliant, open-source বাংলা IME — OmicronLab-এর মূল Avro Keyboard থেকে উদ্ভূত এবং Encoding branch-এ রক্ষিত।</p>
+    </div>
+    <div class="footer-links">
+      <div>
+        <strong>Project</strong>
+        <a href="#compare">তুলনা</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#history">History</a>
+      </div>
+      <div>
+        <strong>Connect</strong>
+        <a href="https://github.com/raselrahmanrocky/Avro-Keyboard" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="https://github.com/raselrahmanrocky/Avro-Keyboard/issues" target="_blank" rel="noreferrer">Issues</a>
+        <a href="https://github.com/raselrahmanrocky/Avro-Keyboard/blob/Encoding/LICENSE.txt" target="_blank" rel="noreferrer">License (MPL-2.0)</a>
+        <a href="https://www.omicronlab.com" target="_blank" rel="noreferrer">OmicronLab</a>
+      </div>
+    </div>
+  </div>
+  <div class="shell footer-bottom">
+    <span>© <span data-year>2026</span> Avro Keyboard · Encoding Branch</span>
+    <span>Made for better Bangla typing</span>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   Avro Keyboard Encoding Branch · Dynamic Site Script
+   Data sources: GitHub API + /data/*.json + Open-Meteo API
+============================================================ */
+(() => {
+  const CONFIG = {
+    owner: 'raselrahmanrocky',
+    repo: 'Avro-Keyboard',
+    branch: 'Encoding',
+    pagesRepo: 'Avro-Keyboard-Releases',
+    dhakaZone: 'Asia/Dhaka',
+    bnDigits: ['০','১','২','৩','৪','৫','৬','৭','৮','৯']
+  };
+
+  const toBn = (v) => String(v).replace(/\d/g, d => CONFIG.bnDigits[+d]);
+
+  // ===== NAV & SCROLL =====
+  const header = document.querySelector('[data-header]');
+  const progress = document.querySelector('[data-scroll-progress]');
+  const menuBtn = document.querySelector('[data-menu-button]');
+  const nav = document.querySelector('[data-nav]');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const closeMenu = () => {
+    menuBtn?.setAttribute('aria-expanded','false');
+    nav?.classList.remove('is-open');
+  };
+  menuBtn?.addEventListener('click', () => {
+    const opening = menuBtn.getAttribute('aria-expanded') !== 'true';
+    menuBtn.setAttribute('aria-expanded', String(opening));
+    nav?.classList.toggle('is-open', opening);
+  });
+  nav?.querySelectorAll('a').forEach(l => l.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closeMenu(); });
+
+  const updateScroll = () => {
+    const top = window.scrollY;
+    const avail = document.documentElement.scrollHeight - window.innerHeight;
+    header?.classList.toggle('is-scrolled', top > 24);
+    if(progress) progress.style.width = `${avail > 0 ? Math.min(100, (top/avail)*100) : 0}%`;
+  };
+  window.addEventListener('scroll', updateScroll, { passive: true });
+  updateScroll();
+
+  // ===== YEAR =====
+  document.querySelectorAll('[data-year]').forEach(n => n.textContent = new Date().getFullYear());
+
+  // ===== REVEAL ANIMATIONS =====
+  const reveals = document.querySelectorAll('.reveal');
+  if(reduceMotion || !('IntersectionObserver' in window)){
+    reveals.forEach(n => n.classList.add('is-visible'));
+  } else {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if(e.isIntersecting){ e.target.classList.add('is-visible'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px' });
+    reveals.forEach(n => io.observe(n));
+  }
+
+  // ===== COUNTER ANIMATION =====
+  const animateCounter = (el, target) => {
+    if(reduceMotion){ el.textContent = target.toLocaleString(); return; }
+    const dur = 1200; const start = performance.now();
+    const step = now => {
+      const p = Math.min(1, (now - start)/dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(target * eased).toLocaleString();
+      if(p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  const counterIO = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting){
+        const t = +e.target.dataset.target;
+        if(!isNaN(t)) animateCounter(e.target, t);
+        counterIO.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.8 });
+  document.querySelectorAll('[data-target]').forEach(el => counterIO.observe(el));
+
+  // ===== GITHUB API: REPO STATS =====
+  const setStat = (id, val) => {
+    const el = document.getElementById(id);
+    if(el){
+      el.textContent = val.toLocaleString();
+      el.dataset.target = val;
+      // Re-animate if visible
+      if(el.getBoundingClientRect().top < window.innerHeight){
+        animateCounter(el, val);
+      }
+    }
+  };
+
+  const loadRepoStats = async () => {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}`);
+      if(!res.ok) throw new Error('GitHub API failed');
+      const data = await res.json();
+      setStat('stat-stars', data.stargazers_count);
+      setStat('stat-forks', data.forks_count);
+      setStat('panel-stars', data.stargazers_count);
+      setStat('panel-forks', data.forks_count);
+    } catch(e){
+      console.warn('Repo stats failed:', e);
+    }
+  };
+
+  const loadCommitCount = async () => {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/commits?sha=${CONFIG.branch}&per_page=1`, {
+        headers: { Accept: 'application/vnd.github.v3+json' }
+      });
+      if(!res.ok) throw new Error('commits failed');
+      const link = res.headers.get('Link');
+      let count = 1;
+      if(link){
+        const m = link.match(/page=(\d+)>; rel="last"/);
+        if(m) count = +m[1];
+      }
+      setStat('stat-commits', count);
+      const mainCount = document.getElementById('main-commit-count');
+      if(mainCount){ mainCount.dataset.target = count; mainCount.textContent = count; animateCounter(mainCount, count); }
+    } catch(e){
+      console.warn('Commit count failed:', e);
+    }
+  };
+
+  const loadAheadCount = async () => {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/compare/master...${CONFIG.branch}`);
+      if(!res.ok) throw new Error('compare failed');
+      const data = await res.json();
+      const ahead = data.ahead_by || 213;
+      setStat('stat-ahead', ahead);
+      const terminalEl = document.getElementById('terminal-ahead');
+      if(terminalEl) terminalEl.textContent = ahead;
+      const inlineEl = document.getElementById('ahead-count-inline');
+      if(inlineEl) inlineEl.textContent = ahead;
+    } catch(e){
+      console.warn('Ahead count failed, using fallback');
+    }
+  };
+
+  const loadReleases = async () => {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/releases`);
+      if(!res.ok) throw new Error('releases failed');
+      const releases = await res.json();
+      const list = document.getElementById('release-list');
+      if(!list) return;
+
+      if(releases.length === 0){
+        list.innerHTML = '<div class="release-row" style="color:rgba(17,33,28,.5)">কোনো release নেই — development branch</div>';
+        return;
+      }
+
+      const latest = releases[0];
+      const tag = document.getElementById('latest-release-tag');
+      const date = document.getElementById('latest-release-date');
+      if(tag) tag.textContent = latest.tag_name;
+      if(date){
+        const d = new Date(latest.published_at);
+        date.textContent = d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+        date.dateTime = d.toISOString();
+      }
+
+      list.innerHTML = releases.slice(0, 4).map(r => {
+        const d = new Date(r.published_at);
+        return `<a class="release-row" href="${r.html_url}" target="_blank" rel="noreferrer">
+          <strong>${r.tag_name}</strong>
+          <time>${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</time>
+        </a>`;
+      }).join('');
+    } catch(e){
+      console.warn('Releases failed:', e);
+      const list = document.getElementById('release-list');
+      if(list) list.innerHTML = '<div class="release-row" style="color:rgba(17,33,28,.5)">Release data unavailable</div>';
+    }
+  };
+
+  // ===== DYNAMIC DATA FROM /data/*.json =====
+  const loadJSON = async (path) => {
+    try {
+      const res = await fetch(path + '?t=' + Date.now()); // cache bust
+      if(!res.ok) throw new Error('JSON failed');
+      return await res.json();
+    } catch(e){
+      console.warn(`Failed to load ${path}:`, e);
+      return null;
+    }
+  };
+
+  const renderComparisons = (items) => {
+    const el = document.getElementById('compare-rows');
+    if(!el || !items) return;
+    el.innerHTML = items.map(c => `
+      <div class="compare-row">
+        <div>${c.feature}</div>
+        <div>${c.old}</div>
+        <div>${c.new}${c.isNew ? '<span class="new-tag">NEW</span>' : ''}</div>
+      </div>
+    `).join('');
+  };
+
+  const renderFeatures = (items) => {
+    const el = document.getElementById('feature-grid');
+    if(!el || !items) return;
+    const variants = ['feature-card-dark','feature-card-red','feature-card-paper'];
+    el.innerHTML = items.map((f, i) => `
+      <article class="feature-card ${variants[i % 3]} reveal">
+        <span class="feature-index">${String(i+1).padStart(2,'0')}</span>
+        <div class="feature-glyph" lang="${f.lang || 'en'}">${f.glyph}</div>
+        <h3>${f.title}</h3>
+        <p>${f.desc}</p>
+      </article>
+    `).join('');
+    // Re-observe reveals
+    el.querySelectorAll('.reveal').forEach(n => {
+      if(!reduceMotion && 'IntersectionObserver' in window){
+        const io = new IntersectionObserver(entries => {
+          entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('is-visible'); io.unobserve(e.target); } });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px' });
+        io.observe(n);
+      } else { n.classList.add('is-visible'); }
+    });
+  };
+
+  const renderWhy = (items) => {
+    const el = document.getElementById('why-grid');
+    if(!el || !items) return;
+    el.innerHTML = items.map((w, i) => `
+      <div class="why-item reveal">
+        <div class="why-num">${toBn(i+1).padStart(2,'০')}</div>
+        <h4>${w.title}</h4>
+        <p>${w.desc}</p>
+      </div>
+    `).join('');
+  };
+
+  const renderTimeline = (items) => {
+    const el = document.getElementById('timeline-list');
+    if(!el || !items) return;
+    el.innerHTML = items.map((t, i) => `
+      <div class="timeline-item ${i === 0 ? 'current' : ''} reveal">
+        <time>${t.year}</time>
+        <div><strong>${t.title}</strong><p>${t.desc}</p></div>
+      </div>
+    `).join('');
+  };
+
+  // ===== DHAKA TIME & BANGLA DATE =====
+  const dhakaParts = (date) => {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: CONFIG.dhakaZone,
+      year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit',
+      hourCycle:'h23'
+    }).formatToParts(date);
+    return Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
+  };
+
+  const banglaCalendar = (year, month, day) => {
+    const target = Date.UTC(year, month-1, day);
+    const earlyYear = year - 594, lateYear = year - 593;
+    const starts = [
+      [Date.UTC(year-1,11,16),'পৌষ',8,earlyYear],
+      [Date.UTC(year,0,15),'মাঘ',9,earlyYear],
+      [Date.UTC(year,1,14),'ফাল্গুন',10,earlyYear],
+      [Date.UTC(year,2,15),'চৈত্র',11,earlyYear],
+      [Date.UTC(year,3,14),'বৈশাখ',0,lateYear],
+      [Date.UTC(year,4,15),'জ্যৈষ্ঠ',1,lateYear],
+      [Date.UTC(year,5,15),'আষাঢ়',2,lateYear],
+      [Date.UTC(year,6,16),'শ্রাবণ',3,lateYear],
+      [Date.UTC(year,7,16),'ভাদ্র',4,lateYear],
+      [Date.UTC(year,8,16),'আশ্বিন',5,lateYear],
+      [Date.UTC(year,9,17),'কার্তিক',6,lateYear],
+      [Date.UTC(year,10,16),'অগ্রহায়ণ',7,lateYear],
+      [Date.UTC(year,11,16),'পৌষ',8,lateYear]
+    ];
+    const active = starts.filter(([s]) => s <= target).at(-1);
+    const [start, monthName, monthIndex, banglaYear] = active;
+    const banglaDay = Math.floor((target - start)/86400000) + 1;
+    const seasons = [
+      { name:'গ্রীষ্ম', key:'grishmo', symbol:'☀' },
+      { name:'বর্ষা', key:'borsha', symbol:'☂' },
+      { name:'শরৎ', key:'shorot', symbol:'☁' },
+      { name:'হেমন্ত', key:'hemonto', symbol:'❋' },
+      { name:'শীত', key:'sheet', symbol:'❄' },
+      { name:'বসন্ত', key:'boshonto', symbol:'✿' }
+    ];
+    return { day: banglaDay, month: monthName, year: banglaYear, season: seasons[Math.floor(monthIndex/2)] };
+  };
+
+  const dayPeriod = (h) => {
+    if(h>=4 && h<6) return 'ভোর';
+    if(h>=6 && h<12) return 'সকাল';
+    if(h>=12 && h<15) return 'দুপুর';
+    if(h>=15 && h<18) return 'বিকেল';
+    if(h>=18 && h<20) return 'সন্ধ্যা';
+    return 'রাত';
+  };
+
+  const setText = (sel, val) => { const n = document.querySelector(sel); if(n) n.textContent = val; };
+  let lastDhakaDate = '';
+
+  const updateClock = () => {
+    const now = new Date();
+    const p = dhakaParts(now);
+    const h = +p.hour;
+    const h12 = h % 12 || 12;
+    const clock = document.querySelector('[data-dhaka-clock]');
+    if(clock){
+      clock.textContent = `${dayPeriod(h)} ${toBn(`${h12}:${p.minute}:${p.second}`)}`;
+      clock.dateTime = now.toISOString();
+    }
+    const key = `${p.year}-${p.month}-${p.day}`;
+    if(key === lastDhakaDate) return;
+    lastDhakaDate = key;
+
+    const b = banglaCalendar(+p.year, +p.month, +p.day);
+    setText('[data-bangla-day]', toBn(b.day));
+    setText('[data-bangla-month]', b.month);
+    setText('[data-bangla-year]', toBn(b.year));
+    setText('[data-bangla-season]', b.season.name);
+    setText('[data-season-symbol]', b.season.symbol);
+    setText('[data-gregorian-date]', new Intl.DateTimeFormat('bn-BD', {
+      timeZone: CONFIG.dhakaZone, weekday:'long', day:'numeric', month:'long', year:'numeric'
+    }).format(now));
+    document.querySelector('[data-today-section]')?.setAttribute('data-season', b.season.key);
+  };
+
+  // ===== WEATHER =====
+  const weatherMeta = (code) => {
+    if(code === 0 || code === 1) return { label:'পরিষ্কার আকাশ', type:'clear' };
+    if(code === 2) return { label:'আংশিক মেঘলা', type:'partly' };
+    if(code === 3) return { label:'মেঘলা', type:'cloudy' };
+    if([45,48].includes(code)) return { label:'কুয়াশা', type:'fog' };
+    if([51,53,55,56,57].includes(code)) return { label:'গুঁড়ি বৃষ্টি', type:'rain' };
+    if([61,63,65,80,81,82].includes(code)) return { label:'বৃষ্টি', type:'rain' };
+    return { label:'পরিবর্তনশীল', type:'cloudy' };
+  };
+  const fmtW = (v) => !isFinite(+v) ? '--' : toBn(Number(v).toFixed(0));
+
+  let weatherCtrl, weatherLoaded = false, lastWLoad = 0;
+  const weatherCard = document.querySelector('[data-weather-card]');
+  const weatherRefresh = document.querySelector('[data-weather-refresh]');
+
+  const loadWeather = async () => {
+    if(!weatherCard) return;
+    weatherCtrl?.abort();
+    const ctrl = new AbortController();
+    weatherCtrl = ctrl;
+    weatherRefresh?.setAttribute('aria-busy','true');
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=23.8103&longitude=90.4125&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=${CONFIG.dhakaZone}`, { signal: ctrl.signal });
+      if(!res.ok) throw new Error('Weather failed');
+      const data = await res.json();
+      const c = data.current;
+      const m = weatherMeta(+c.weather_code);
+      weatherCard.dataset.weather = m.type;
+      setText('[data-weather-temp]', fmtW(c.temperature_2m));
+      setText('[data-weather-condition]', m.label);
+      setText('[data-weather-feels]', fmtW(c.apparent_temperature)+'°');
+      setText('[data-weather-humidity]', fmtW(c.relative_humidity_2m)+'%');
+      setText('[data-weather-wind]', fmtW(c.wind_speed_10m)+' কিমি/ঘণ্টা');
+      setText('[data-weather-rain]', fmtW(c.precipitation)+' মিমি');
+      setText('[data-weather-updated]', 'আপডেট: ' + new Intl.DateTimeFormat('bn-BD',{timeZone:CONFIG.dhakaZone,hour:'numeric',minute:'2-digit'}).format(new Date()));
+      weatherLoaded = true;
+      lastWLoad = Date.now();
+    } catch(e){
+      if(e.name === 'AbortError') return;
+      setText('[data-weather-condition]', 'তথ্য পাওয়া যায়নি');
+    } finally {
+      weatherRefresh?.removeAttribute('aria-busy');
+    }
+  };
+  weatherRefresh?.addEventListener('click', loadWeather);
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden && Date.now() - lastWLoad > 10*60*1000) loadWeather();
+  });
+
+  // ===== BOOTSTRAP =====
+  const init = async () => {
+    updateClock();
+    setInterval(updateClock, 1000);
+    loadWeather();
+    setInterval(loadWeather, 10*60*1000);
+
+    // GitHub API
+    loadRepoStats();
+    loadCommitCount();
+    loadAheadCount();
+    loadReleases();
+
+    // Dynamic JSON data
+    const [comparisons, features, timeline] = await Promise.all([
+      loadJSON('data/comparisons.json'),
+      loadJSON('data/features.json'),
+      loadJSON('data/timeline.json')
+    ]);
+
+    // Fallback data if JSONs fail to load
+    const defaultComparisons = [
+      { feature:"ফোনেটিক ইঞ্জিন", old:"সিঙ্ক্রোনাস ডিস্ক I/O — ল্যাগ", new:"Async + timer-based dirty flag", isNew:true },
+      { feature:"ফাইল সেফটি", old:"Direct overwrite — crash এ corruption", new:"Atomic write-to-tmp + rename", isNew:true },
+      { feature:"এরর হ্যান্ডলিং", old:"কীবোর্ড হুক ব্লক", new:"Silent error + tray balloon", isNew:true },
+      { feature:"রিসোর্স রিকভারি", old:"রিস্টার্ট লাগত", new:"Auto reload, restart ছাড়া", isNew:true },
+      { feature:"টেক্সট কনভার্টার", old:"শুধু Delphi", new:"Qt 6 C++ port + Delphi", isNew:true },
+      { feature:"ডার্ক থিম", old:"ছিল না", new:"Full dark theme support", isNew:true },
+      { feature:"DPI Awareness", old:"PerMonitorV2 — UI stretch সমস্যা", new:"System DPI — About dialog fix" },
+      { feature:"Build system", old:"3rd-party dependency", new:"Delphi 12 Community Edition" },
+      { feature:"Installer", old:"শুধু কিবোর্ড", new:"Bundled Qt converter + portable" },
+      { feature:"লাইসেন্স", old:"Mixed", new:"Clean MPL-2.0 + Qt LGPL" },
+      { feature:"কোড কোয়ালিটি", old:"Inconsistent formatting", new:"Formatter profile + style guide" },
+      { feature:"Code ownership", old:"ছিল না", new:"CODEOWNERS file", isNew:true }
+    ];
+
+    const defaultFeatures = [
+      { glyph:"⚡", title:"Async Persistence", desc:"ফোনেটিক ইঞ্জিন এখন ডিস্ক I/O থেকে সম্পূর্ণ বিচ্ছিন্ন। learned candidate গুলো timer-based dirty flag দিয়ে পরে সেভ হয় — কোনো ল্যাগ নেই।" },
+      { glyph:"🛡", title:"Atomic File Writes", desc:"প্রতিটি candidate write-to-tmp + rename পদ্ধতিতে সেভ হয়। Crash হলেও ডেটা করাপ্ট হবে না।" },
+      { glyph:"🔇", title:"Silent Error Recovery", desc:"Dictionary load ব্যর্থ হলেও কীবোর্ড চলবে। TThread.ForceQueue দিয়ে tray notification পাঠানো হবে।" },
+      { glyph:"🔄", title:"Resource Recovery", desc:"Auto-correct editor থেকে সরাসরি reload — পুরো অ্যাপ রিস্টার্টের দরকার নেই।" },
+      { glyph:"🎨", title:"Dark Theme", desc:"সম্পূর্ণ dark theme সাপোর্ট। রাতের দীর্ঘ কাজের জন্য আরামদায়ক।" },
+      { glyph:"⚙", title:"Qt C++ Converter", desc:"Delphi কনভার্টারের Qt 6 পোর্ট। CLI flag দিয়ে portable packaging সহজে কনফিগার।" }
+    ];
+
+    const defaultTimeline = [
+      { year:"সেপ্টেম্বর ২০২৬", title:"Async persistence ও error recovery", desc:"ফোনেটিক ইঞ্জিনের সবচেয়ে গুরুত্বপূর্ণ রিফ্যাক্টর — I/O latency থেকে মুক্তি।" },
+      { year:"সেপ্টেম্বর ২০২৬", title:"Qt converter bundled", desc:"Qt Avro Text Converter এখন setup এবং portable build উভয়ের সাথে আসে।" },
+      { year:"সেপ্টেম্বর ২০২৬", title:"Legacy converter deprecated", desc:"পুরানো converter শুধুমাত্র reference হিসেবে রাখা হয়েছে।" },
+      { year:"মে ২০২৫", title:"Delphi 12 সাপোর্ট", desc:"3rd-party dependency ছাড়াই লেটেস্ট ফ্রি Delphi-তে বিল্ড।" },
+      { year:"মে ২০২৫", title:"Dark theme + build system", desc:"Build script, formatter profile এবং সম্পূর্ণ dark theme যুক্ত।" }
+    ];
+
+    renderComparisons(comparisons || defaultComparisons);
+    renderFeatures(features || defaultFeatures);
+    renderTimeline(timeline || defaultTimeline);
+
+    // Why section — always uses embedded data for consistency
+    const whyData = [
+      { title:"টাইপিং এ কোনো ল্যাগ নেই", desc:"Async persistence দিয়ে background save এখন সম্পূর্ণ transparent।" },
+      { title:"ডেটা কখনোই হারাবে না", desc:"Atomic file writes মানে crash হলেও personal dictionary অক্ষত।" },
+      { title:"ত্রুটিতেও থেমে যাবে না", desc:"কোনো ফাইল মিসিং হলেও কীবোর্ড চলবে — শুধু একটি ছোট notification।" },
+      { title:"রিস্টার্ট ছাড়াই ঠিক", desc:"Dictionary install বা DB update — পুরো Avro বন্ধ করার দরকার নেই।" },
+      { title:"রাতের কাজের জন্য আদর্শ", desc:"Full dark theme — চোখের জন্য আরামদায়ক।" },
+      { title:"ওপেন সোর্স, স্বচ্ছ", desc:"MPL-2.0 লাইসেন্স। সবকিছু GitHub-এ অডিট করা যায়।" }
+    ];
+    renderWhy(whyData);
+  };
+
+  init();
+})();
+</script>
+</body>
+</html>

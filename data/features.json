@@ -1,0 +1,38 @@
+[
+  {
+    "glyph": "⚡",
+    "title": "Async Persistence",
+    "desc": "ফোনেটিক ইঞ্জিন এখন ডিস্ক I/O থেকে সম্পূর্ণ বিচ্ছিন্ন। learned candidate গুলো timer-based dirty flag দিয়ে পরে সেভ হয় — ফলে টাইপিং এ কোনো ল্যাগ নেই।",
+    "lang": "en"
+  },
+  {
+    "glyph": "🛡",
+    "title": "Atomic File Writes",
+    "desc": "প্রতিটি candidate write-to-tmp + rename পদ্ধতিতে সেভ হয়। হঠাৎ crash বা power loss হলেও ডেটা করাপ্ট হবে না।",
+    "lang": "en"
+  },
+  {
+    "glyph": "🔇",
+    "title": "Silent Error Recovery",
+    "desc": "ডিকশনারি বা database লোড ব্যর্থ হলে কীবোর্ড হুক ব্লক হবে না। TThread.ForceQueue দিয়ে tray notification পাঠানো হবে।",
+    "lang": "en"
+  },
+  {
+    "glyph": "🔄",
+    "title": "Resource Recovery",
+    "desc": "Auto-correct editor থেকে সরাসরি dictionary reload করা যাবে — পুরো অ্যাপ রিস্টার্টের দরকার নেই।",
+    "lang": "en"
+  },
+  {
+    "glyph": "🎨",
+    "title": "Dark Theme",
+    "desc": "সম্পূর্ণ dark theme সাপোর্ট। About dialog সহ সব ডায়ালগে রাতের ব্যবহারের জন্য আরামদায়ক ডিজাইন।",
+    "lang": "en"
+  },
+  {
+    "glyph": "⚙",
+    "title": "Qt C++ Converter",
+    "desc": "Delphi কনভার্টারের পূর্ণাঙ্গ Qt 6 পোর্ট। CLI flag দিয়ে portable packaging সহজে কনফিগার।",
+    "lang": "en"
+  }
+]
